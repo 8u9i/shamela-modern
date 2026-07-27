@@ -1,7 +1,11 @@
 {
   "name": "shamela-modern",
   "version": "1.0.0",
-  "description": "Al-Maktaba Al-Shamela - Modern Cross-Platform Library",
+  "description": "المكتبة الشاملة الإباضية — تطبيق سطح مكتب حديث للمكتبة الشاملة",
+  "author": {
+    "name": "المكتبة الشاملة الإباضية",
+    "email": "dev@eshamila.net"
+  },
   "main": "electron/main.js",
   "scripts": {
     "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
@@ -76,13 +80,10 @@
       "icon": "assets/icon.icns"
     },
     "linux": {
-      "target": [
-        "AppImage",
-        "deb",
-        "rpm"
-      ],
+      "target": ["AppImage", "deb"],
       "icon": "assets",
-      "category": "Education"
+      "category": "Education",
+      "maintainer": "المكتبة الشاملة الإباضية <dev@eshamila.net>"
     },
     "win": {
       "target": [
