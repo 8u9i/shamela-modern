@@ -5,7 +5,7 @@
   "main": "electron/main.js",
   "scripts": {
     "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
-    "build": "vite build && tsc -p tsconfig.electron.json",
+    "build": "vite build",
     "convert": "node scripts/convert.js",
     "package:win": "npm run build && electron-builder --win",
     "package:mac": "npm run build && electron-builder --mac",
