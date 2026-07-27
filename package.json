@@ -77,7 +77,7 @@
       "icon": "assets/icon.icns"
     },
     "linux": {
-      "target": ["AppImage"],
+      "target": ["AppImage", "deb"],
       "icon": "assets",
       "category": "Education",
       "maintainer": "المكتبة الشاملة الإباضية <dev@eshamila.net>"
