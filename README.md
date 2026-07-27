@@ -1,74 +1,86 @@
 # المكتبة الشاملة الإباضية
 
-Desktop app for the Ibadi Shamela library — browse, search, and read 2,700+ books offline. Works on Windows, macOS, and Linux.
+تطبيق سطح مكتب حديث وعصري للمكتبة الشاملة الإباضية. يعمل على ويندوز، ماك، ولينكس.
 
-## Quick Start
+---
 
-### Download
+## التحميل السريع
 
-Download the latest installer for your system from the **Releases** page on GitHub.
+حمل أحدث إصدار من صفحة **الإصدارات** على GitHub.
 
-| Platform | File |
-|----------|------|
-| Windows | `Shamela-Setup-1.0.0.exe` |
-| macOS | `Shamela-1.0.0.dmg` |
-| Linux | `Shamela-1.0.0.AppImage` |
+| النظام | الملف |
+|--------|-------|
+| ويندوز | `Al-Maktaba.Al-Shamela.Setup.1.0.1.exe` |
+| ماك   | قريباً |
+| لينكس | قريباً |
 
-### Install
+---
 
-**Windows:** Double-click the `.exe` file and follow the installer steps.
+## طريقة التثبيت
 
-**macOS:** Open the `.dmg` file, drag the app to your Applications folder. If macOS says the app is from an unidentified developer, go to **System Settings → Privacy & Security** and click **Open Anyway**.
+**ويندوز:** انقر نقراً مزدوجاً على ملف `.exe` واتبع خطوات المثبت.
 
-**Linux:** Make the `.AppImage` executable (`chmod +x Shamela-*.AppImage`) and double-click it.
+**ماك:** قريباً.
 
-### First Launch
+**لينكس:** قريباً.
 
-1. Open the app
-2. The library loads automatically — no setup needed
-3. Browse books by category, search by title/author, or open the reader
+---
 
-## System Requirements
+## متطلبات التشغيل
 
-| | Minimum |
-|--|---------|
-| **OS** | Windows 10+, macOS 11+, Ubuntu 20.04+ |
-| **RAM** | 2 GB |
-| **Storage** | 3 GB free (includes the 2.1 GB library database) |
-| **Internet** | Only needed for the initial update check (optional) |
+| | الحد الأدنى |
+|--|------------|
+| **نظام التشغيل** | ويندوز 10+، ماك 11+، أوبونتو 20.04+ |
+| **الذاكرة** | 2 جيجابايت رام |
+| **المساحة** | 3 جيجابايت (تشمل قاعدة بيانات المكتبة 2.1 جيجابايت) |
+| **الإنترنت** | مطلوب فقط للتحقق من التحديثات (اختياري) |
 
-## Features
+---
 
-- **2,700+ books** — Complete Ibadi Islamic library
-- **Full-text search** — Instant search across 688,000+ pages
-- **PDF viewer** — Read PDF-only books
-- **Offline** — Everything runs locally, no internet needed
-- **Arabic RTL** — Full right-to-left interface
-- **Dark theme** — Easy on the eyes
+## المميزات
 
-## Building from Source
+- **أكثر من 2700 كتاب** — مكتبة إباضية كاملة
+- **بحث نصي كامل** — ابحث في 688,000+ صفحة بشكل فوري
+- **قارئ PDF** — اقرأ الكتب المصورة
+- **بدون إنترنت** — كل شيء يعمل محلياً
+- **واجهة عربية** — دعم كامل للغة العربية من اليمين إلى اليسار
+- **تصميم داكن** — مريح للعين
 
-For developers who want to build themselves:
+---
+
+## صور من البرنامج
+
+(قريباً)
+
+---
+
+## البناء من المصدر
+
+للمطورين الراغبين في بناء التطبيق بأنفسهم:
 
 ```bash
-# Install dependencies
+# تثبيت الاعتماديات
 npm install
 
-# Build the app
+# بناء التطبيق
 npm run build
 
-# Package for your platform
-npm run package:win    # Windows
-npm run package:mac    # macOS
-npm run package:linux  # Linux
+# تعبئة لمنصتك
+npm run package:win    # ويندوز
+npm run package:mac    # ماك
+npm run package:linux  # لينكس
 ```
 
-The packaged app will be in the `dist-app/` folder.
+الملفات المعبأة ستكون في مجلد `dist-app/`.
 
-## Tech Stack
+---
+
+## التقنيات المستخدمة
 
 React 19 + TypeScript + Tailwind CSS + Electron 33 + SQLite
 
-## Credits
+---
 
-Original library data from [eshamila.net](https://eshamila.net). Modern desktop app rebuilt from scratch for cross-platform support.
+## الحقوق
+
+بيانات المكتبة من [eshamila.net](https://eshamila.net). الواجهة الحديثة مطورة من الصفر لدعم جميع المنصات.
