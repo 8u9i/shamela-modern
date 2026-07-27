@@ -1,0 +1,11 @@
+node_modules/
+dist/
+dist-app/
+data/shamela.db
+data/userdata.db
+playwright-report/
+test-results/
+*.log
+.env
+.DS_Store
+Thumbs.db

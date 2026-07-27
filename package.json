@@ -1,0 +1,89 @@
+{
+  "name": "shamela-modern",
+  "version": "1.0.0",
+  "description": "Al-Maktaba Al-Shamela - Modern Cross-Platform Library",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
+    "build": "vite build && tsc -p tsconfig.electron.json",
+    "convert": "node scripts/convert.js",
+    "package:win": "npm run build && electron-builder --win",
+    "package:mac": "npm run build && electron-builder --mac",
+    "package:linux": "npm run build && electron-builder --linux",
+    "e2e": "npm run build && npx playwright test --config=e2e/playwright.config.ts",
+    "e2e:dev": "npx playwright test --config=e2e/playwright.config.ts",
+    "e2e:ui": "npx playwright test --ui --config=e2e/playwright.config.ts",
+    "package:all": "npm run build && electron-builder -mwl"
+  },
+  "dependencies": {
+    "@base-ui/react": "^1.6.0",
+    "better-sqlite3": "^11.10.0",
+    "chardet": "^1.6.0",
+    "iconv-lite": "^0.6.3",
+    "mdb-reader": "^3.2.0",
+    "node-stream-zip": "^1.15.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.0",
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.7.0",
+    "autoprefixer": "^10.5.4",
+    "concurrently": "^9.2.4",
+    "cross-env": "^7.0.3",
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
+    "playwright": "^1.62.0",
+    "postcss": "^8.5.22",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-pdf": "^9.1.0",
+    "tailwindcss": "^3.4.19",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.3",
+    "wait-on": "^8.0.5"
+  },
+  "build": {
+    "appId": "net.eshamila.modern",
+    "productName": "Al-Maktaba Al-Shamela",
+    "directories": {
+      "output": "dist-app"
+    },
+    "files": [
+      "electron/**/*",
+      "dist/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "data/shamela.db",
+        "to": "shamela.db"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.reference",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "assets/icon.icns"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm"
+      ],
+      "icon": "assets",
+      "category": "Education"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "assets/icon.ico"
+    }
+  }
+}

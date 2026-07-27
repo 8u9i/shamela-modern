@@ -1,0 +1,285 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-page: #07130e;
+  --bg-card: #0c1d16;
+  --bg-card-alt: #11261e;
+  --bg-surface: #162e24;
+  --bg-border: #1d3a2d;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent: #E99E39;
+  --accent-hover: #d48a2e;
+  --accent-dim: rgba(233, 158, 57, 0.15);
+  --accent-dim-hover: rgba(233, 158, 57, 0.25);
+  --border: #2a4a3a;
+  --font-arabic: 'IBM Plex Sans Arabic', 'Segoe UI', 'Tahoma', sans-serif;
+  --font-pixel: 'Press Start 2P', monospace;
+  --pixel-shadow: #030a07;
+  --teal: #51CDBC;
+  --teal-hover: #40bca8;
+  --teal-muted: #309088;
+  --danger: #ef4444;
+  --success: #22c55e;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-arabic);
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  direction: rtl;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'liga' 1, 'calt' 1;
+}
+
+/* Retro pixel scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-card-alt);
+  border-left: 2px solid var(--border);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border: 2px solid var(--pixel-shadow);
+  box-shadow: inset 0 0 0 1px var(--accent-hover);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-hover);
+}
+
+/* Arabic book text */
+.arabic-text {
+  font-family: var(--font-arabic);
+  font-size: 1.35rem;
+  line-height: 2.2;
+  text-align: start;
+  direction: rtl;
+  color: var(--text-primary);
+}
+
+/* Reading themes */
+.reader-dark {
+  --reader-bg: #0f172a;
+  --reader-text: #e2e8f0;
+  --reader-highlight: rgba(233, 158, 57, 0.4);
+  --reader-highlight-active: #E99E39;
+}
+
+.reader-light {
+  --reader-bg: #f8f5f0;
+  --reader-text: #2d2a24;
+  --reader-highlight: rgba(233, 158, 57, 0.4);
+  --reader-highlight-active: #E99E39;
+}
+
+.reader-sepia {
+  --reader-bg: #f2e8d5;
+  --reader-text: #5b4636;
+  --reader-highlight: rgba(233, 158, 57, 0.4);
+  --reader-highlight-active: #E99E39;
+}
+
+.reader-green {
+  --reader-bg: #1a2e1a;
+  --reader-text: #c8e6c9;
+  --reader-highlight: rgba(76, 201, 100, 0.4);
+  --reader-highlight-active: #4cc964;
+}
+
+.arabic-text.reader-dark { background: var(--reader-bg); color: var(--reader-text); }
+.arabic-text.reader-light { background: var(--reader-bg); color: var(--reader-text); }
+.arabic-text.reader-sepia { background: var(--reader-bg); color: var(--reader-text); }
+.arabic-text.reader-green { background: var(--reader-bg); color: var(--reader-text); }
+
+.reader-area {
+  background-image: url('/reader-bg.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+
+.font-arabic {
+  font-family: var(--font-arabic);
+}
+
+.font-pixel {
+  font-family: var(--font-pixel);
+}
+
+.arabic-heading {
+  font-family: var(--font-arabic);
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+/* Retro pixel card */
+.pixel-card {
+  border: 2px solid var(--border);
+  box-shadow: 4px 4px 0 0 var(--pixel-shadow);
+}
+
+.pixel-card-sm {
+  border: 1.5px solid var(--border);
+  box-shadow: 2px 2px 0 0 var(--pixel-shadow);
+}
+
+.pixel-card-gold {
+  border: 2px solid var(--accent);
+  box-shadow: 3px 3px 0 0 var(--pixel-shadow);
+}
+
+.pixel-btn {
+  border: 1.5px solid var(--border);
+  box-shadow: 2px 2px 0 0 var(--pixel-shadow);
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.15s ease, color 0.15s ease;
+  color: var(--text-primary);
+  will-change: transform, box-shadow;
+}
+
+.pixel-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 0 var(--pixel-shadow);
+}
+
+.pixel-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 0 var(--pixel-shadow);
+}
+
+.pixel-btn-gold {
+  border: 1.5px solid var(--accent);
+  box-shadow: 2px 2px 0 0 var(--pixel-shadow);
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.15s ease, color 0.15s ease;
+  color: var(--text-primary);
+  will-change: transform, box-shadow;
+}
+
+.pixel-btn-gold:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 0 var(--pixel-shadow);
+}
+
+.pixel-btn-gold:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 0 var(--pixel-shadow);
+}
+
+
+
+/* Search highlight */
+.search-highlight {
+  background-color: var(--accent-dim);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+/* Title bar drag (macOS) */
+.titlebar-drag {
+  -webkit-app-region: drag;
+}
+
+.titlebar-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* Loading pulse */
+@keyframes pulse-gold {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+.loading-pulse {
+  animation: pulse-gold 1.5s ease-in-out infinite;
+}
+
+/* Page content fade-in */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Book card hover */
+.book-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  border: 1.5px solid var(--border);
+  box-shadow: 3px 3px 0 0 var(--pixel-shadow);
+}
+
+.book-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0 0 var(--pixel-shadow);
+}
+
+/* Mini stats display */
+.stat-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-value {
+  font-family: var(--font-pixel);
+  font-size: 0.75rem;
+  color: var(--accent);
+  line-height: 1.4;
+}
+
+.stat-label {
+  font-size: 0.625rem;
+  color: var(--text-muted);
+}
+
+/* Splitter */
+.splitter {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.splitter:hover {
+  background-color: var(--accent);
+}
+
+/* Bidi isolation for mixed content */
+bdi, dir {
+  unicode-bidi: isolate;
+}
+
+/* Arabic numeral formatting */
+.arabic-num {
+  font-feature-settings: 'tnum' 1;
+}
+
+/* Print styles */
+@media print {
+  body { background: white; color: black; }
+  header, footer, nav, .sidebar, .splitter, button, iframe { display: none !important; }
+  .arabic-text { color: black !important; background: white !important; font-size: 1rem !important; }
+  * { overflow: visible !important; }
+  @page { margin: 2cm; }
+}
