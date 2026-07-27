@@ -36,6 +36,7 @@
     "electron": "^33.4.11",
     "electron-builder": "^25.1.8",
     "playwright": "^1.62.0",
+    "png2icons": "^2.0.1",
     "postcss": "^8.5.22",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
@@ -48,6 +49,11 @@
   "build": {
     "appId": "net.eshamila.modern",
     "productName": "Al-Maktaba Al-Shamela",
+    "publish": {
+      "provider": "github",
+      "owner": "8u9i",
+      "repo": "shamela-modern"
+    },
     "directories": {
       "output": "dist-app"
     },
