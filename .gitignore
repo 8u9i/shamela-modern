@@ -1,8 +1,8 @@
 node_modules/
 dist/
 dist-app/
-data/shamela.db
-data/userdata.db
+data/
+*.log
 playwright-report/
 test-results/
 *.log
