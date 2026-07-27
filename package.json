@@ -73,23 +73,17 @@
     ],
     "mac": {
       "category": "public.app-category.reference",
-      "target": [
-        "dmg",
-        "zip"
-      ],
+      "target": ["dmg"],
       "icon": "assets/icon.icns"
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": ["AppImage"],
       "icon": "assets",
       "category": "Education",
       "maintainer": "المكتبة الشاملة الإباضية <dev@eshamila.net>"
     },
     "win": {
-      "target": [
-        "nsis",
-        "portable"
-      ],
+      "target": ["nsis"],
       "icon": "assets/icon.ico"
     }
   }
