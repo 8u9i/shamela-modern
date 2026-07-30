@@ -105,28 +105,32 @@ jobs:
     needs: [release, publish-db]
     if: always()
     steps:
-      - name: Publish the release (remove draft status)
+      - name: Generate release notes
+        run: |
+          cat > RELEASE_NOTES.md << 'EOF'
+          ## 📦 الإصدار
+
+          ⚠️ هذا المشروع غير رسمي — المطور ليس عضوًا في فريق المكتبة الشاملة.
+          الإصدارات المبنية بالـ CI لا تحتوي على قاعدة البيانات الفعلية shamela.db (2.1 GB).
+
+          ### ⬇ التحميل
+
+          | الملف | المنصة |
+          |------|--------|
+          | `Al-Maktaba-Al-Shamela-Setup-*.exe` | ويندوز |
+          | `Al-Maktaba-Al-Shamela-*-arm64.dmg` | ماك (Apple Silicon) |
+          | `Al-Maktaba-Al-Shamela-*.AppImage` | لينكس |
+          | `Al-Maktaba-Al-Shamela-*.deb` | لينكس (deb) |
+
+          راجع [CHANGELOG.md](https://github.com/8u9i/shamela-modern/blob/master/CHANGELOG.md) للتفاصيل الكاملة.
+          EOF
+
+      - name: Publish the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="v${{ needs.release.outputs.version }}"
+          NOTES=$(cat RELEASE_NOTES.md)
           echo "Publishing release: $VERSION"
-          gh release edit "$VERSION" \
-            --draft=false \
-            --title "المكتبة الشاملة الإباضية $VERSION" \
-            --notes "## 📦 الإصدار $VERSION
-
-> ⚠️ هذا المشروع غير رسمي — المطور ليس عضوًا في فريق المكتبة الشاملة.
-> الإصدارات المبنية بالـ CI لا تحتوي على قاعدة البيانات الفعلية shamela.db (2.1 GB).
-
-### ⬇ التحميل
-
-| الملف | المنصة |
-|------|--------|
-| \`Al-Maktaba-Al-Shamela-Setup-${{ needs.release.outputs.version }}-x64.exe\` | 🪟 ويندوز |
-| \`Al-Maktaba-Al-Shamela-${{ needs.release.outputs.version }}-arm64.dmg\` | 🍎 ماك (Apple Silicon) |
-| \`Al-Maktaba-Al-Shamela-${{ needs.release.outputs.version }}.AppImage\` | 🐧 لينكس |
-| \`Al-Maktaba-Al-Shamela-${{ needs.release.outputs.version }}.deb\` | 🐧 لينكس (deb) |
-
-راجع [CHANGELOG.md](https://github.com/8u9i/shamela-modern/blob/master/CHANGELOG.md) للتفاصيل الكاملة."
-          echo "✅ Release published: $VERSION"
+          gh release edit "$VERSION" --draft=false --title "المكتبة الشاملة الإباضية $VERSION" --notes "$NOTES"
+          echo "✅ Published: $VERSION"
