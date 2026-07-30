@@ -59,7 +59,8 @@
     "publish": {
       "provider": "github",
       "owner": "8u9i",
-      "repo": "shamela-modern"
+      "repo": "shamela-modern",
+      "releaseType": "release"
     },
     "releaseInfo": {
       "releaseName": "المكتبة الشاملة الإباضية v${version}",
@@ -92,14 +93,14 @@
       "shortcutName": "المكتبة الشاملة",
       "unicode": true,
       "deleteAppDataOnUninstall": false,
-      "artifactName": "${productName}-Setup-${version}.${ext}"
+      "artifactName": "${productName}-Setup-${version}-${arch}.${ext}"
     },
     "mac": {
       "category": "public.app-category.reference",
       "target": ["dmg"],
       "icon": "assets/icon.icns",
       "darkModeSupport": true,
-      "artifactName": "${productName}-${version}-arm64.${ext}"
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "linux": {
       "target": ["AppImage", "deb"],
