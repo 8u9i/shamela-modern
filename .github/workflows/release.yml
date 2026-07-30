@@ -89,5 +89,9 @@ jobs:
           VERSION="v${{ needs.release.outputs.version }}"
           NOTES=$(cat RELEASE_NOTES.md)
           echo "Publishing release: $VERSION"
-          gh release edit "$VERSION" --draft=false --title "المكتبة الشاملة الإباضية $VERSION" --notes "$NOTES"
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            gh release edit "$VERSION" --draft=false --title "المكتبة الشاملة الإباضية $VERSION" --notes "$NOTES"
+          else
+            gh release create "$VERSION" --title "المكتبة الشاملة الإباضية $VERSION" --notes "$NOTES"
+          fi
           echo "✅ Published: $VERSION"
