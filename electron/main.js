@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, protocol, net, dialog } = require('electron
 const path = require('path');
 const Database = require('better-sqlite3');
 const fs = require('fs');
+const autoUpdater = require('./autoUpdater');
 
 let mainWindow;
 let db;
@@ -35,7 +36,11 @@ function openDatabase() {
   const dbPath = usePackaged ? packagedDb : DB_PATH;
   if (!fs.existsSync(dbPath)) {
     console.error('Database not found at:', dbPath);
-    console.error('Run "npm run convert" first to create the database.');
+    return null;
+  }
+  const size = fs.statSync(dbPath).size;
+  if (size < 100000) {
+    console.error('Database is a placeholder (too small). Real database required.');
     return null;
   }
   const database = new Database(dbPath, { readonly: true });
@@ -370,6 +375,27 @@ ipcMain.handle('db:startUpdate', async (event, { bookIds } = {}) => {
   }
 });
 
+// ============ App Auto-Update IPC Handlers ============
+
+ipcMain.handle('app:checkForUpdates', () => {
+  autoUpdater.checkForUpdates();
+  return true;
+});
+
+ipcMain.handle('app:downloadUpdate', () => {
+  autoUpdater.downloadUpdate();
+  return true;
+});
+
+ipcMain.handle('app:quitAndInstall', () => {
+  autoUpdater.quitAndInstall();
+  return true;
+});
+
+ipcMain.handle('app:getAppVersion', () => {
+  return autoUpdater.getCurrentVersion().version;
+});
+
 // ============ User Data IPC Handlers ============
 
 ipcMain.handle('db:addHistory', (event, { bookId, bookTitle, authorName, page = 0 }) => {
@@ -566,6 +592,7 @@ app.whenReady().then(() => {
   });
 
   createWindow();
+  autoUpdater.init(mainWindow);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

@@ -48,8 +48,46 @@ jobs:
       - name: Rebuild native dependencies for Electron
         run: npx electron-builder install-app-deps
 
-      - name: Package and publish
+      - name: Package and publish (CI)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
         run: npx electron-builder --publish always
+
+  publish-db:
+    name: Publish database asset
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Create placeholder DB notice
+        run: |
+          cat > DB_README.md << 'EOF'
+          # قاعدة بيانات المكتبة الشاملة الإباضية
+
+          هذه القاعدة مطلوبة لتشغيل تطبيق المكتبة الشاملة الإباضية.
+
+          ## التثبيت
+
+          1. حمّل التطبيق من الإصدارات (Assets)
+          2. ضع ملف shamela.db في مجلد البيانات:
+             - ويندوز: %APPDATA%/Al-Maktaba Al-Shamela/data/
+             - ماك: ~/Library/Application Support/Al-Maktaba Al-Shamela/data/
+             - لينكس: ~/.config/Al-Maktaba Al-Shamela/data/
+
+          أو ضعه في مجلد resources داخل مجلد التثبيت:
+          - ويندوز: Program Files/Al-Maktaba Al-Shamela/resources/shamela.db
+          - ماك: Al-Maktaba Al-Shamela.app/Contents/Resources/shamela.db
+          - لينكس: /opt/Al-Maktaba Al-Shamela/resources/shamela.db
+
+          ملاحظة: الإصدارات المبنية بالـ CI لا تحتوي على قاعدة البيانات الفعلية.
+          يجب على الناشر بناء التطبيق محلياً باستخدام npm run package:full.
+          EOF
+
+      - name: Upload DB notice to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ github.ref_name }} DB_README.md --clobber || echo "no release yet"

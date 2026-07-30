@@ -42,4 +42,14 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('update:progress', handler);
     return () => ipcRenderer.removeListener('update:progress', handler);
   },
+
+  checkForAppUpdates: () => ipcRenderer.invoke('app:checkForUpdates'),
+  downloadAppUpdate: () => ipcRenderer.invoke('app:downloadUpdate'),
+  quitAndInstallApp: () => ipcRenderer.invoke('app:quitAndInstall'),
+  getAppVersion: () => ipcRenderer.invoke('app:getAppVersion'),
+  onAppUpdateStatus: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('update:status', handler);
+    return () => ipcRenderer.removeListener('update:status', handler);
+  },
 });

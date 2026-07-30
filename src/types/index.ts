@@ -121,3 +121,15 @@ export interface NoteEntry {
   content: string;
   created_at: string;
 }
+
+export interface AppUpdateStatus {
+  status: 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';
+  version?: string;
+  releaseDate?: string;
+  releaseNotes?: string | null;
+  bytesPerSecond?: number;
+  percent?: number;
+  transferred?: number;
+  total?: number;
+  message?: string;
+}

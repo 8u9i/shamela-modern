@@ -12,6 +12,7 @@ import { PdfViewer } from './components/PdfViewer';
 import { ServicesView } from './components/ServicesView';
 import { TipsDialog } from './components/TipsDialog';
 import { UpdateView } from './components/UpdateView';
+import { UpdateNotifier } from './components/UpdateNotifier';
 import { StatusBar } from './components/StatusBar';
 
 declare global {
@@ -48,6 +49,11 @@ declare global {
       onUpdateProgress: (callback: (data: any) => void) => () => void;
       findDuplicateAuthors: () => Promise<import('./types').DuplicateAuthorGroup[]>;
       mergeDuplicateAuthors: (opts: { primaries: { primaryId: number; duplicateIds: number[] }[] }) => Promise<{ success: boolean; merged?: number; deleted?: number; error?: string }>;
+      checkForAppUpdates: () => Promise<boolean>;
+      downloadAppUpdate: () => Promise<boolean>;
+      quitAndInstallApp: () => Promise<boolean>;
+      getAppVersion: () => Promise<string>;
+      onAppUpdateStatus: (callback: (data: import('./types').AppUpdateStatus) => void) => () => void;
     };
   }
 }
@@ -67,6 +73,7 @@ export default function App() {
   const [tipsOpen, setTipsOpen] = useState(false);
   const [showUpdate, setShowUpdate] = useState(true);
   const [updateDone, setUpdateDone] = useState(false);
+  const [dbError, setDbError] = useState('');
   const isDragging = useRef(false);
 
   useEffect(() => {
@@ -79,10 +86,16 @@ export default function App() {
         window.api.getStats(),
         window.api.getCategories(),
       ]);
+      if (!s) {
+        setDbError('قاعدة البيانات غير موجودة. يرجى تثبيت قاعدة البيانات أولاً.');
+      } else if (!s.books && !s.authors) {
+        setDbError('قاعدة البيانات فارغة أو تالفة.');
+      }
       setStats(s);
       setCategories(cats);
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to initialize:', e);
+      setDbError(e?.message || 'فشل تحميل قاعدة البيانات');
     } finally {
       setLoading(false);
       if (!localStorage.getItem('hasSeenTips')) {
@@ -179,7 +192,7 @@ export default function App() {
     return <UpdateView onComplete={handleUpdateComplete} onSkip={handleUpdateSkip} />;
   }
 
-  if (loading) {
+  if (loading && !dbError) {
     return (
       <div className="flex items-center justify-center h-screen bg-[var(--bg-page)]">
         <div className="pixel-card bg-[var(--bg-card)] px-8 py-10 text-center" style={{ minWidth: 320 }}>
@@ -187,6 +200,27 @@ export default function App() {
             المكتبة الشاملة
           </div>
           <div className="text-[var(--text-muted)] text-[10px] font-pixel">جاري التحميل...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (dbError) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-[var(--bg-page)]">
+        <div className="pixel-card bg-[var(--bg-card)] px-8 py-10 text-center" style={{ minWidth: 400, maxWidth: 500 }}>
+          <div className="font-pixel text-red-400 text-sm mb-4" style={{ lineHeight: 2 }}>
+            ⚠ خطأ
+          </div>
+          <div className="text-[var(--text-primary)] text-xs mb-4 font-pixel" style={{ lineHeight: 1.8 }}>
+            {dbError}
+          </div>
+          <div className="text-[var(--text-muted)] text-[10px] mb-3 font-pixel">
+            يرجى تنزيل قاعدة بيانات المكتبة الشاملة الإباضية من موقع المشروع
+          </div>
+          <div className="text-[var(--text-muted)] text-[9px] font-pixel" style={{ direction: 'ltr' }}>
+            github.com/8u9i/shamela-modern
+          </div>
         </div>
       </div>
     );
@@ -298,6 +332,7 @@ export default function App() {
       </div>
 
       <TipsDialog open={tipsOpen} onClose={() => setTipsOpen(false)} />
+      <UpdateNotifier />
       <StatusBar
         stats={stats}
         currentBook={selectedBook}

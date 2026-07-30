@@ -17,12 +17,15 @@
     "e2e": "npm run build && npx playwright test --config=e2e/playwright.config.ts",
     "e2e:dev": "npx playwright test --config=e2e/playwright.config.ts",
     "e2e:ui": "npx playwright test --ui --config=e2e/playwright.config.ts",
-    "package:all": "npm run build && electron-builder -mwl"
+    "package:all": "npm run build && electron-builder -mwl",
+    "package:full": "node scripts/ensure-db.js && npm run build && electron-builder -mwl",
+    "download-db": "node scripts/download-db.js"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
     "better-sqlite3": "^11.10.0",
     "chardet": "^1.6.0",
+    "electron-updater": "^6.8.9",
     "iconv-lite": "^0.6.3",
     "mdb-reader": "^3.2.0",
     "node-stream-zip": "^1.15.0"
@@ -58,6 +61,10 @@
       "owner": "8u9i",
       "repo": "shamela-modern"
     },
+    "releaseInfo": {
+      "releaseName": "المكتبة الشاملة الإباضية v${version}",
+      "releaseNotes": "راجع [CHANGELOG.md](https://github.com/8u9i/shamela-modern/blob/master/CHANGELOG.md) للتفاصيل الكاملة عن التحديث."
+    },
     "directories": {
       "output": "dist-app"
     },
@@ -65,26 +72,48 @@
       "electron/**/*",
       "dist/**/*"
     ],
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**"
+    ],
     "extraResources": [
       {
         "from": "data/shamela.db",
         "to": "shamela.db"
       }
     ],
+    "nsis": {
+      "oneClick": true,
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "المكتبة الشاملة",
+      "unicode": true,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
     "mac": {
       "category": "public.app-category.reference",
       "target": ["dmg"],
-      "icon": "assets/icon.icns"
+      "icon": "assets/icon.icns",
+      "darkModeSupport": true,
+      "artifactName": "${productName}-${version}-arm64.${ext}"
     },
     "linux": {
       "target": ["AppImage", "deb"],
       "icon": "assets",
       "category": "Education",
-      "maintainer": "المكتبة الشاملة الإباضية <dev@eshamila.net>"
+      "maintainer": "المكتبة الشاملة الإباضية <dev@eshamila.net>",
+      "synopsis": "المكتبة الشاملة الإباضية",
+      "description": "تطبيق سطح مكتب حديث للمكتبة الشاملة الإباضية — يضم أكثر من 2700 كتاب مع بحث نصي كامل",
+      "artifactName": "${productName}-${version}.${ext}"
     },
     "win": {
       "target": ["nsis"],
-      "icon": "assets/icon.ico"
+      "icon": "assets/icon.ico",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     }
   }
 }
