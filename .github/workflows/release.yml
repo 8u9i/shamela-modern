@@ -16,6 +16,8 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -35,6 +37,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+        shell: bash
+
       - name: Create placeholder database
         run: node scripts/create-placeholder-db.js
 
@@ -48,21 +55,21 @@ jobs:
       - name: Rebuild native dependencies for Electron
         run: npx electron-builder install-app-deps
 
-      - name: Package and publish (CI)
+      - name: Package and publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
         run: npx electron-builder --publish always
 
   publish-db:
-    name: Publish database asset
+    name: Upload DB notice
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: [release]
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Create placeholder DB notice
+      - name: Create DB notice
         run: |
           cat > DB_README.md << 'EOF'
           # قاعدة بيانات المكتبة الشاملة الإباضية
@@ -90,4 +97,36 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload ${{ github.ref_name }} DB_README.md --clobber || echo "no release yet"
+          gh release upload v${{ needs.release.outputs.version }} DB_README.md --clobber || echo "no release yet"
+
+  publish-release:
+    name: Publish release
+    runs-on: ubuntu-latest
+    needs: [release, publish-db]
+    if: always()
+    steps:
+      - name: Publish the release (remove draft status)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="v${{ needs.release.outputs.version }}"
+          echo "Publishing release: $VERSION"
+          gh release edit "$VERSION" \
+            --draft=false \
+            --title "المكتبة الشاملة الإباضية $VERSION" \
+            --notes "## 📦 الإصدار $VERSION
+
+> ⚠️ هذا المشروع غير رسمي — المطور ليس عضوًا في فريق المكتبة الشاملة.
+> الإصدارات المبنية بالـ CI لا تحتوي على قاعدة البيانات الفعلية shamela.db (2.1 GB).
+
+### ⬇ التحميل
+
+| الملف | المنصة |
+|------|--------|
+| \`Al-Maktaba-Al-Shamela-Setup-${{ needs.release.outputs.version }}-x64.exe\` | 🪟 ويندوز |
+| \`Al-Maktaba-Al-Shamela-${{ needs.release.outputs.version }}-arm64.dmg\` | 🍎 ماك (Apple Silicon) |
+| \`Al-Maktaba-Al-Shamela-${{ needs.release.outputs.version }}.AppImage\` | 🐧 لينكس |
+| \`Al-Maktaba-Al-Shamela-${{ needs.release.outputs.version }}.deb\` | 🐧 لينكس (deb) |
+
+راجع [CHANGELOG.md](https://github.com/8u9i/shamela-modern/blob/master/CHANGELOG.md) للتفاصيل الكاملة."
+          echo "✅ Release published: $VERSION"
