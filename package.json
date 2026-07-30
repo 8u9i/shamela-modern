@@ -96,7 +96,7 @@
       "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": ["deb"],
       "icon": "assets",
       "category": "Education",
       "maintainer": "المكتبة الشاملة الإباضية <dev@eshamila.net>",
