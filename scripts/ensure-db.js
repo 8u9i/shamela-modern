@@ -17,10 +17,9 @@ console.error(`
 For a full release, you need the real shamela.db (2.1 GB).
 
 How to get it:
-  1. If you have the original ShamelaFull data, run:  npm run convert
+  1. Download via API: the app will auto-download on first run from SHAMELA_DB_URL
   2. Or place the .db file manually at:  data/shamela.db
 
-Note: CI builds use a placeholder database. The resulting
-installers will not contain books. Only for testing.
+Note: CI builds do not bundle the DB. Users download it on first run.
 `);
 process.exit(1);

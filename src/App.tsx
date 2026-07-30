@@ -13,6 +13,7 @@ import { ServicesView } from './components/ServicesView';
 import { TipsDialog } from './components/TipsDialog';
 import { UpdateView } from './components/UpdateView';
 import { UpdateNotifier } from './components/UpdateNotifier';
+import { DownloadDbView } from './components/DownloadDbView';
 import { StatusBar } from './components/StatusBar';
 
 declare global {
@@ -54,6 +55,9 @@ declare global {
       quitAndInstallApp: () => Promise<boolean>;
       getAppVersion: () => Promise<string>;
       onAppUpdateStatus: (callback: (data: import('./types').AppUpdateStatus) => void) => () => void;
+      checkDbExists: () => Promise<{ exists: boolean; reason?: string; size?: number }>;
+      downloadDbFromUrl: (opts: { url: string }) => Promise<{ success: boolean; size?: number; error?: string }>;
+      onDbDownloadProgress: (callback: (data: { downloaded: number; total: number; percent: number }) => void) => () => void;
     };
   }
 }
@@ -72,15 +76,24 @@ export default function App() {
   const [pdfBook, setPdfBook] = useState<Book | null>(null);
   const [tipsOpen, setTipsOpen] = useState(false);
   const [showUpdate, setShowUpdate] = useState(true);
-  const [updateDone, setUpdateDone] = useState(false);
+  const [dbReady, setDbReady] = useState(false);
   const [dbError, setDbError] = useState('');
   const isDragging = useRef(false);
+  const bookNavVersion = useRef(0);
+  const splitCleanup = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    init();
+    const done = localStorage.getItem('updateDone') === 'true';
+    setShowUpdate(!done);
   }, []);
 
-  const init = async () => {
+  useEffect(() => {
+    if (!showUpdate && dbReady) {
+      initApp();
+    }
+  }, [showUpdate, dbReady]);
+
+  const initApp = async () => {
     try {
       const [s, cats] = await Promise.all([
         window.api.getStats(),
@@ -104,14 +117,22 @@ export default function App() {
     }
   };
 
+  const handleDbReady = useCallback(() => {
+    setDbReady(true);
+    setShowUpdate(false);
+    localStorage.setItem('updateDone', 'true');
+  }, []);
+
   const handleOpenBook = useCallback(async (book: Book) => {
+    const version = ++bookNavVersion.current;
     const fullBook = await window.api.getBook(book.id);
+    if (version !== bookNavVersion.current) return;
     setSelectedBook(fullBook);
     setView('reader');
     window.api.addHistory({
       bookId: book.id,
-      bookTitle: book.title,
-      authorName: book.author_name,
+      bookTitle: fullBook.title,
+      authorName: fullBook.author_name,
       page: 0,
     }).catch(() => {});
   }, []);
@@ -155,6 +176,12 @@ export default function App() {
     setView('services');
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (splitCleanup.current) splitCleanup.current();
+    };
+  }, []);
+
   const handleSplitMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     isDragging.current = true;
@@ -171,25 +198,24 @@ export default function App() {
       isDragging.current = false;
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
+    };
+
+    const cleanup = () => {
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
     };
 
+    splitCleanup.current = cleanup;
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
   }, []);
 
-  const handleUpdateComplete = useCallback(() => {
-    setShowUpdate(false);
-    setUpdateDone(true);
-  }, []);
-
-  const handleUpdateSkip = useCallback(() => {
-    setShowUpdate(false);
-  }, []);
-
   if (showUpdate) {
-    return <UpdateView onComplete={handleUpdateComplete} onSkip={handleUpdateSkip} />;
+    return <UpdateView onComplete={handleDbReady} onSkip={() => setShowUpdate(false)} />;
+  }
+
+  if (!dbReady) {
+    return <DownloadDbView onComplete={handleDbReady} />;
   }
 
   if (loading && !dbError) {
@@ -240,9 +266,7 @@ export default function App() {
         currentBook={selectedBook}
       />
 
-
       <div className="flex-1 flex overflow-hidden mx-2 mb-2 pixel-card bg-[var(--bg-card)]" style={{ borderRadius: 0 }}>
-        {/* Sidebar */}
         {sidebarOpen && (
           <div
             className="flex flex-col bg-[var(--bg-surface)] overflow-hidden"
@@ -261,7 +285,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Splitter */}
         {sidebarOpen && (
           <div
             className="w-1 bg-[var(--bg-border)] hover:bg-[var(--accent)] cursor-col-resize transition-colors"
@@ -269,7 +292,6 @@ export default function App() {
           />
         )}
 
-        {/* Right Panel */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {view === 'home' && (
             <HomeView
@@ -301,6 +323,7 @@ export default function App() {
           )}
           {view === 'reader' && selectedBook && (
             <BookReader
+              key={selectedBook.id}
               book={selectedBook}
               onBack={handleBack}
               onOpenAuthor={handleOpenAuthor}

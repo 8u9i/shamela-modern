@@ -1,6 +1,6 @@
 {
   "name": "shamela-modern",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "المكتبة الشاملة الإباضية — تطبيق سطح مكتب حديث للمكتبة الشاملة",
   "author": {
     "name": "المكتبة الشاملة الإباضية",
@@ -17,9 +17,7 @@
     "e2e": "npm run build && npx playwright test --config=e2e/playwright.config.ts",
     "e2e:dev": "npx playwright test --config=e2e/playwright.config.ts",
     "e2e:ui": "npx playwright test --ui --config=e2e/playwright.config.ts",
-    "package:all": "npm run build && electron-builder -mwl",
-    "package:full": "node scripts/ensure-db.js && npm run build && electron-builder -mwl",
-    "download-db": "node scripts/download-db.js"
+    "package:all": "npm run build && electron-builder -mwl"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
@@ -76,12 +74,7 @@
     "asarUnpack": [
       "node_modules/better-sqlite3/**"
     ],
-    "extraResources": [
-      {
-        "from": "data/shamela.db",
-        "to": "shamela.db"
-      }
-    ],
+    "extraResources": [],
     "nsis": {
       "oneClick": true,
       "installerIcon": "assets/icon.ico",
@@ -109,7 +102,8 @@
       "maintainer": "المكتبة الشاملة الإباضية <dev@eshamila.net>",
       "synopsis": "المكتبة الشاملة الإباضية",
       "description": "تطبيق سطح مكتب حديث للمكتبة الشاملة الإباضية — يضم أكثر من 2700 كتاب مع بحث نصي كامل",
-      "artifactName": "${productName}-${version}.${ext}"
+      "artifactName": "${productName}-${version}.${ext}",
+      "executableArgs": ["--no-sandbox", "--disable-gpu"]
     },
     "win": {
       "target": ["nsis"],

@@ -52,4 +52,12 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('update:status', handler);
     return () => ipcRenderer.removeListener('update:status', handler);
   },
+
+  checkDbExists: () => ipcRenderer.invoke('db:checkExists'),
+  downloadDbFromUrl: (opts) => ipcRenderer.invoke('db:downloadFromUrl', opts),
+  onDbDownloadProgress: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('db:downloadProgress', handler);
+    return () => ipcRenderer.removeListener('db:downloadProgress', handler);
+  },
 });

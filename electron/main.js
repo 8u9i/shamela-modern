@@ -11,45 +11,53 @@ let servicesDb;
 
 const isDev = process.env.NODE_ENV === 'development';
 const appRoot = path.join(__dirname, '..');
-const DATA_DIR = path.join(appRoot, 'data');
+const PDF_DIR = process.env.SHAMELA_PDF_DIR
+  || (isDev ? path.join(appRoot, '..', 'eshamila.net', 'pdf') : path.join(process.resourcesPath, 'pdf'));
+const DB_DOWNLOAD_URL = process.env.SHAMELA_DB_URL || 'https://eshamila.net/shamela.db';
 
-const DB_PATH = path.join(DATA_DIR, 'shamela.db');
-const USER_DB_PATH = path.join(DATA_DIR, 'userdata.db');
-const PDF_DIR = isDev
-  ? 'D:\\Downloads D\\ShamelaFull_2026-07-22_142851\\eshamila.net\\pdf'
-  : path.join(process.resourcesPath, 'pdf');
+const resourcesPath = process.resourcesPath || '';
+const packagedDb = path.join(resourcesPath, 'shamela.db');
+const usePackaged = resourcesPath ? fs.existsSync(packagedDb) : false;
+
+console.log('PDF_DIR:', PDF_DIR);
+console.log('DB_DOWNLOAD_URL:', DB_DOWNLOAD_URL);
+console.log('  usePackaged:', usePackaged);
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'shamela-pdf', privileges: { standard: true, supportFetchAPI: true, byPassCSP: true, stream: true } },
 ]);
 
-const packagedDb = path.join(process.resourcesPath, 'shamela.db');
-const usePackaged = fs.existsSync(packagedDb);
+function getDataDir() {
+  return isDev
+    ? path.join(appRoot, 'data')
+    : path.join(app.getPath('userData'), 'data');
+}
 
-console.log('Shamela Modern starting...');
-console.log('  isDev:', isDev);
-console.log('  usePackaged:', usePackaged);
-console.log('  DB_PATH:', usePackaged ? packagedDb : DB_PATH);
-console.log('  DB exists:', fs.existsSync(usePackaged ? packagedDb : DB_PATH));
+function getDbPath() { return path.join(getDataDir(), 'shamela.db'); }
+function getUserDbPath() { return path.join(getDataDir(), 'userdata.db'); }
 
 function openDatabase() {
-  const dbPath = usePackaged ? packagedDb : DB_PATH;
-  if (!fs.existsSync(dbPath)) {
-    console.error('Database not found at:', dbPath);
+  try {
+    const dbPath = usePackaged ? packagedDb : getDbPath();
+    if (!fs.existsSync(dbPath)) {
+      console.error('Database not found at:', dbPath);
+      return null;
+    }
+    const size = fs.statSync(dbPath).size;
+    if (size < 100000) {
+      console.error('Database is a placeholder (too small). Real database required.');
+      return null;
+    }
+    const database = new Database(dbPath, { readonly: true });
+    return database;
+  } catch (e) {
+    console.error('Failed to open main database:', e);
     return null;
   }
-  const size = fs.statSync(dbPath).size;
-  if (size < 100000) {
-    console.error('Database is a placeholder (too small). Real database required.');
-    return null;
-  }
-  const database = new Database(dbPath, { readonly: true });
-  database.pragma('journal_mode = WAL');
-  return database;
 }
 
 function openServicesDatabase() {
-  const dbPath = usePackaged ? packagedDb : DB_PATH;
+  const dbPath = usePackaged ? packagedDb : getDbPath();
   if (!fs.existsSync(dbPath)) return null;
   try {
     const database = new Database(dbPath, { readonly: false });
@@ -62,9 +70,10 @@ function openServicesDatabase() {
 }
 
 function openUserDatabase() {
-  const database = new Database(USER_DB_PATH);
-  database.pragma('journal_mode = WAL');
-  database.exec(`
+  try {
+    const database = new Database(getUserDbPath());
+    database.pragma('journal_mode = WAL');
+    database.exec(`
     CREATE TABLE IF NOT EXISTS history (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       book_id INTEGER NOT NULL,
@@ -93,7 +102,11 @@ function openUserDatabase() {
       created_at TEXT DEFAULT (datetime('now'))
     );
   `);
-  return database;
+    return database;
+  } catch (e) {
+    console.error('Failed to open user database:', e);
+    return null;
+  }
 }
 
 function createWindow() {
@@ -146,6 +159,7 @@ ipcMain.handle('db:getCategories', () => {
 });
 
 function getSectionChildIds(categoryId) {
+  if (!db) return [categoryId];
   const cat = db.prepare('SELECT level, order_num FROM categories WHERE id = ?').get(categoryId);
   if (!cat) return [categoryId];
   if (cat.level === 1) {
@@ -316,14 +330,15 @@ ipcMain.handle('db:getRecentBooks', () => {
 
 ipcMain.handle('getPdfPath', (event, relativePath) => {
   if (!relativePath) return null;
-  // Try multiple formats: with/without "Rel:" prefix, with/without "pdf\" prefix
+  const pdfDirResolved = path.resolve(PDF_DIR);
   const candidates = [
     relativePath.replace(/^Rel:/, '').replace(/^pdf[/\\]/, ''),
     relativePath.replace(/^Rel:/, ''),
     relativePath,
   ];
   for (const c of candidates) {
-    const fullPath = path.join(PDF_DIR, c);
+    const fullPath = path.resolve(path.join(PDF_DIR, c));
+    if (!fullPath.startsWith(pdfDirResolved + path.sep) && fullPath !== pdfDirResolved) continue;
     if (fs.existsSync(fullPath)) return fullPath;
   }
   return null;
@@ -361,7 +376,7 @@ ipcMain.handle('db:startUpdate', async (event, { bookIds } = {}) => {
     let progress = 0;
     await updater.runUpdates(toInstall, (msg, current, total) => {
       progress = { msg, current, total };
-      if (mainWindow) {
+      if (mainWindow && !mainWindow.webContents.isDestroyed()) {
         mainWindow.webContents.send('update:progress', progress);
       }
     });
@@ -566,29 +581,105 @@ ipcMain.handle('exportText', async (event, { content, defaultName = 'export.txt'
   return true;
 });
 
+// ============ Linux Workarounds ============
+
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('no-sandbox');
+  app.commandLine.appendSwitch('enable-features', 'UseOzonePlatform');
+  app.commandLine.appendSwitch('disable-software-rasterizer');
+  app.commandLine.appendSwitch('in-process-gpu');
+}
+
+// ============ DB Download ============
+
+ipcMain.handle('db:checkExists', () => {
+  const dbPath = usePackaged ? packagedDb : getDbPath();
+  if (!fs.existsSync(dbPath)) return { exists: false, reason: 'not-found' };
+  const size = fs.statSync(dbPath).size;
+  if (size < 100000) return { exists: false, reason: 'placeholder', size };
+  return { exists: true, size };
+});
+
+ipcMain.handle('db:downloadFromUrl', async (event, { url } = {}) => {
+  const downloadUrl = url || DB_DOWNLOAD_URL;
+  if (!downloadUrl.startsWith('https://') && !downloadUrl.startsWith('http://')) {
+    return { success: false, error: 'رابط غير صالح' };
+  }
+  const destPath = getDbPath();
+  const dir = getDataDir();
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+  let controller;
+  try {
+    controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 300000);
+    const response = await fetch(downloadUrl, { signal: controller.signal });
+    clearTimeout(timeout);
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const total = parseInt(response.headers.get('content-length') || '0', 10);
+    const reader = response.body.getReader();
+    const stream = fs.createWriteStream(destPath + '.downloading');
+    let downloaded = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const needsDrain = !stream.write(Buffer.from(value));
+      downloaded += value.length;
+      if (needsDrain) {
+        await new Promise((resolve) => stream.once('drain', resolve));
+      }
+      if (mainWindow && !mainWindow.webContents.isDestroyed() && total > 0) {
+        mainWindow.webContents.send('db:downloadProgress', {
+          downloaded, total,
+          percent: Math.round((downloaded / total) * 100),
+        });
+      }
+    }
+
+    await new Promise((resolve, reject) => {
+      stream.on('finish', resolve);
+      stream.on('error', reject);
+      stream.end();
+    });
+
+    fs.renameSync(destPath + '.downloading', destPath);
+    return { success: true, size: fs.statSync(destPath).size };
+  } catch (e) {
+    try { fs.unlinkSync(destPath + '.downloading'); } catch {}
+    if (controller?.signal.aborted) {
+      return { success: false, error: 'انتهت مهلة التحميل' };
+    }
+    return { success: false, error: e.message };
+  }
+});
+
 // ============ App Lifecycle ============
 
 app.whenReady().then(() => {
+  const dataDir = getDataDir();
+  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
   db = openDatabase();
   userDb = openUserDatabase();
   servicesDb = openServicesDatabase();
 
   protocol.handle('shamela-pdf', (request) => {
-    // URL format: shamela-pdf:///D:/path/to/file.pdf
-    // (triple slash, forward slashes, each segment URI-encoded except drive letter)
-    const raw = request.url.slice('shamela-pdf:///'.length);
-    const decoded = decodeURIComponent(raw);
-    // Convert forward slashes back to OS-native separators
-    const filePath = decoded.replace(/\//g, path.sep);
-    const resolved = path.resolve(filePath);
-    const pdfDir = path.resolve(PDF_DIR);
-    if (resolved.toLowerCase() !== pdfDir.toLowerCase() && !resolved.toLowerCase().startsWith(pdfDir.toLowerCase() + path.sep)) {
-      return new Response('Forbidden', { status: 403 });
+    try {
+      const raw = request.url.slice('shamela-pdf:///'.length);
+      const decoded = decodeURIComponent(raw);
+      const filePath = decoded.replace(/\//g, path.sep);
+      const resolved = fs.realpathSync(filePath);
+      const pdfDir = fs.realpathSync(PDF_DIR);
+      if (resolved !== pdfDir && !resolved.startsWith(pdfDir + path.sep)) {
+        return new Response('Forbidden', { status: 403 });
+      }
+      const parts = resolved.split(path.sep);
+      const fileUrl = 'file:///' + parts.map((s, i) => i === 0 ? s : encodeURIComponent(s)).join('/');
+      return net.fetch(fileUrl);
+    } catch {
+      return new Response('Not Found', { status: 404 });
     }
-    // Build proper file:/// URL with encoded non-ASCII chars
-    const parts = resolved.split(path.sep);
-    const fileUrl = 'file:///' + parts.map((s, i) => i === 0 ? s : encodeURIComponent(s)).join('/');
-    return net.fetch(fileUrl);
   });
 
   createWindow();
@@ -600,11 +691,13 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  if (db) db.close();
-  if (servicesDb) servicesDb.close();
+  if (db) { db.close(); db = null; }
+  if (servicesDb) { servicesDb.close(); servicesDb = null; }
+  if (userDb) { userDb.close(); userDb = null; }
   if (process.platform !== 'darwin') app.quit();
 });
 
 app.on('before-quit', () => {
-  if (db) db.close();
+  if (db) { db.close(); db = null; }
+  if (userDb) { userDb.close(); userDb = null; }
 });

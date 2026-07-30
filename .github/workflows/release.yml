@@ -42,13 +42,6 @@ jobs:
         run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
         shell: bash
 
-      - name: Create placeholder database
-        run: node scripts/create-placeholder-db.js
-
-      - name: Verify placeholder DB exists
-        shell: bash
-        run: test -f data/shamela.db && echo "DB found" || (echo "::error::data/shamela.db missing" && exit 1)
-
       - name: Build App
         run: npm run build
 
@@ -76,21 +69,21 @@ jobs:
 
           هذه القاعدة مطلوبة لتشغيل تطبيق المكتبة الشاملة الإباضية.
 
-          ## التثبيت
+          ## التثبيت التلقائي
 
-          1. حمّل التطبيق من الإصدارات (Assets)
-          2. ضع ملف shamela.db في مجلد البيانات:
+          التطبيق سيطلب تحميل قاعدة البيانات تلقائياً عند أول تشغيل. كل ما عليك هو اتصال بالإنترنت.
+
+          ## التثبيت اليدوي
+
+          إذا أردت وضع قاعدة البيانات يدوياً:
+
+          1. حمّل ملف shamela.db من الرابط: https://eshamila.net/shamela.db
+          2. ضع الملف في أحد المجلدات التالية حسب نظامك:
              - ويندوز: %APPDATA%/Al-Maktaba Al-Shamela/data/
              - ماك: ~/Library/Application Support/Al-Maktaba Al-Shamela/data/
              - لينكس: ~/.config/Al-Maktaba Al-Shamela/data/
 
-          أو ضعه في مجلد resources داخل مجلد التثبيت:
-          - ويندوز: Program Files/Al-Maktaba Al-Shamela/resources/shamela.db
-          - ماك: Al-Maktaba Al-Shamela.app/Contents/Resources/shamela.db
-          - لينكس: /opt/Al-Maktaba Al-Shamela/resources/shamela.db
-
-          ملاحظة: الإصدارات المبنية بالـ CI لا تحتوي على قاعدة البيانات الفعلية.
-          يجب على الناشر بناء التطبيق محلياً باستخدام npm run package:full.
+          ملاحظة: التطبيق يبحث عن shamela.db في مجلد data داخل مجلد إعدادات التطبيق.
           EOF
 
       - name: Upload DB notice to release
@@ -114,7 +107,7 @@ jobs:
           ## 📦 الإصدار
 
           ⚠️ هذا المشروع غير رسمي — المطور ليس عضوًا في فريق المكتبة الشاملة.
-          الإصدارات المبنية بالـ CI لا تحتوي على قاعدة البيانات الفعلية shamela.db (2.1 GB).
+          قاعدة البيانات لا تُضمّن مع الإصدار. يشملها التطبيق تلقائياً عند أول تشغيل عبر رابط التحميل.
 
           ### ⬇ التحميل
 
