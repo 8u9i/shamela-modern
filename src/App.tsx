@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ViewMode, Book, Category, Author, DbStats, LeftPanelTab } from './types';
+import { ViewMode, Book, Category, Author, DbStats } from './types';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { HomeView } from './components/HomeView';
@@ -13,7 +13,6 @@ import { ServicesView } from './components/ServicesView';
 import { TipsDialog } from './components/TipsDialog';
 import { UpdateView } from './components/UpdateView';
 import { UpdateNotifier } from './components/UpdateNotifier';
-import { DownloadDbView } from './components/DownloadDbView';
 import { StatusBar } from './components/StatusBar';
 
 declare global {
@@ -55,9 +54,7 @@ declare global {
       quitAndInstallApp: () => Promise<boolean>;
       getAppVersion: () => Promise<string>;
       onAppUpdateStatus: (callback: (data: import('./types').AppUpdateStatus) => void) => () => void;
-      checkDbExists: () => Promise<{ exists: boolean; reason?: string; size?: number }>;
-      downloadDbFromUrl: (opts: { url: string }) => Promise<{ success: boolean; size?: number; error?: string }>;
-      onDbDownloadProgress: (callback: (data: { downloaded: number; total: number; percent: number }) => void) => () => void;
+      checkDbStatus: () => Promise<{ ready: boolean; reason?: string; totalBooks?: number; contentBooks?: number }>;
     };
   }
 }
@@ -75,23 +72,24 @@ export default function App() {
   const [splitPosition, setSplitPosition] = useState(320);
   const [pdfBook, setPdfBook] = useState<Book | null>(null);
   const [tipsOpen, setTipsOpen] = useState(false);
-  const [showUpdate, setShowUpdate] = useState(true);
   const [dbReady, setDbReady] = useState(false);
+  const [showInitialUpdate, setShowInitialUpdate] = useState(true);
   const [dbError, setDbError] = useState('');
   const isDragging = useRef(false);
   const bookNavVersion = useRef(0);
   const splitCleanup = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    const done = localStorage.getItem('updateDone') === 'true';
-    setShowUpdate(!done);
+    return () => {
+      if (splitCleanup.current) splitCleanup.current();
+    };
   }, []);
 
   useEffect(() => {
-    if (!showUpdate && dbReady) {
+    if (!showInitialUpdate && dbReady) {
       initApp();
     }
-  }, [showUpdate, dbReady]);
+  }, [showInitialUpdate, dbReady]);
 
   const initApp = async () => {
     try {
@@ -100,7 +98,7 @@ export default function App() {
         window.api.getCategories(),
       ]);
       if (!s) {
-        setDbError('قاعدة البيانات غير موجودة. يرجى تثبيت قاعدة البيانات أولاً.');
+        setDbError('قاعدة البيانات غير موجودة.');
       } else if (!s.books && !s.authors) {
         setDbError('قاعدة البيانات فارغة أو تالفة.');
       }
@@ -117,10 +115,15 @@ export default function App() {
     }
   };
 
-  const handleDbReady = useCallback(() => {
+  const handleUpdateComplete = useCallback(() => {
+    setShowInitialUpdate(false);
     setDbReady(true);
-    setShowUpdate(false);
     localStorage.setItem('updateDone', 'true');
+  }, []);
+
+  const handleSkipUpdate = useCallback(() => {
+    setShowInitialUpdate(false);
+    setDbReady(true);
   }, []);
 
   const handleOpenBook = useCallback(async (book: Book) => {
@@ -176,12 +179,6 @@ export default function App() {
     setView('services');
   }, []);
 
-  useEffect(() => {
-    return () => {
-      if (splitCleanup.current) splitCleanup.current();
-    };
-  }, []);
-
   const handleSplitMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     isDragging.current = true;
@@ -210,12 +207,8 @@ export default function App() {
     document.addEventListener('mouseup', onMouseUp);
   }, []);
 
-  if (showUpdate) {
-    return <UpdateView onComplete={handleDbReady} onSkip={() => setShowUpdate(false)} />;
-  }
-
-  if (!dbReady) {
-    return <DownloadDbView onComplete={handleDbReady} />;
+  if (showInitialUpdate) {
+    return <UpdateView onComplete={handleUpdateComplete} onSkip={handleSkipUpdate} />;
   }
 
   if (loading && !dbError) {
@@ -241,12 +234,15 @@ export default function App() {
           <div className="text-[var(--text-primary)] text-xs mb-4 font-pixel" style={{ lineHeight: 1.8 }}>
             {dbError}
           </div>
-          <div className="text-[var(--text-muted)] text-[10px] mb-3 font-pixel">
-            يرجى تنزيل قاعدة بيانات المكتبة الشاملة الإباضية من موقع المشروع
+          <div className="text-[var(--text-muted)] text-[10px] mb-3 font-pixel" style={{ lineHeight: 1.8 }}>
+            شغّل التحديث لتحميل كتب المكتبة الشاملة من الموقع الرسمي
           </div>
-          <div className="text-[var(--text-muted)] text-[9px] font-pixel" style={{ direction: 'ltr' }}>
-            github.com/8u9i/shamela-modern
-          </div>
+          <button
+            onClick={() => { setShowInitialUpdate(true); setDbError(''); }}
+            className="px-6 py-3 bg-[var(--accent)] text-white text-xs font-pixel hover:opacity-80 transition-opacity"
+          >
+            بدء التحديث
+          </button>
         </div>
       </div>
     );

@@ -13,14 +13,12 @@ const isDev = process.env.NODE_ENV === 'development';
 const appRoot = path.join(__dirname, '..');
 const PDF_DIR = process.env.SHAMELA_PDF_DIR
   || (isDev ? path.join(appRoot, '..', 'eshamila.net', 'pdf') : path.join(process.resourcesPath, 'pdf'));
-const DB_DOWNLOAD_URL = process.env.SHAMELA_DB_URL || 'https://eshamila.net/shamela.db';
 
 const resourcesPath = process.resourcesPath || '';
 const packagedDb = path.join(resourcesPath, 'shamela.db');
 const usePackaged = resourcesPath ? fs.existsSync(packagedDb) : false;
 
 console.log('PDF_DIR:', PDF_DIR);
-console.log('DB_DOWNLOAD_URL:', DB_DOWNLOAD_URL);
 console.log('  usePackaged:', usePackaged);
 
 protocol.registerSchemesAsPrivileged([
@@ -39,16 +37,18 @@ function getUserDbPath() { return path.join(getDataDir(), 'userdata.db'); }
 function openDatabase() {
   try {
     const dbPath = usePackaged ? packagedDb : getDbPath();
-    if (!fs.existsSync(dbPath)) {
-      console.error('Database not found at:', dbPath);
-      return null;
+    let exists = fs.existsSync(dbPath);
+    if (!exists) {
+      const dir = getDataDir();
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     }
-    const size = fs.statSync(dbPath).size;
-    if (size < 100000) {
-      console.error('Database is a placeholder (too small). Real database required.');
-      return null;
+    const database = new Database(dbPath);
+    database.pragma('journal_mode = WAL');
+    if (!exists) {
+      const { initSchema, rebuildFts } = require('./dbSchema');
+      console.log('Initializing database schema...');
+      initSchema(database);
     }
-    const database = new Database(dbPath, { readonly: true });
     return database;
   } catch (e) {
     console.error('Failed to open main database:', e);
@@ -590,68 +590,17 @@ if (process.platform === 'linux') {
   app.commandLine.appendSwitch('in-process-gpu');
 }
 
-// ============ DB Download ============
+// ============ DB Schema Check ============
 
-ipcMain.handle('db:checkExists', () => {
-  const dbPath = usePackaged ? packagedDb : getDbPath();
-  if (!fs.existsSync(dbPath)) return { exists: false, reason: 'not-found' };
-  const size = fs.statSync(dbPath).size;
-  if (size < 100000) return { exists: false, reason: 'placeholder', size };
-  return { exists: true, size };
-});
-
-ipcMain.handle('db:downloadFromUrl', async (event, { url } = {}) => {
-  const downloadUrl = url || DB_DOWNLOAD_URL;
-  if (!downloadUrl.startsWith('https://') && !downloadUrl.startsWith('http://')) {
-    return { success: false, error: 'رابط غير صالح' };
-  }
-  const destPath = getDbPath();
-  const dir = getDataDir();
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-
-  let controller;
+ipcMain.handle('db:checkStatus', () => {
+  if (!db) return { ready: false, reason: 'not-found' };
   try {
-    controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 300000);
-    const response = await fetch(downloadUrl, { signal: controller.signal });
-    clearTimeout(timeout);
-
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const total = parseInt(response.headers.get('content-length') || '0', 10);
-    const reader = response.body.getReader();
-    const stream = fs.createWriteStream(destPath + '.downloading');
-    let downloaded = 0;
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      const needsDrain = !stream.write(Buffer.from(value));
-      downloaded += value.length;
-      if (needsDrain) {
-        await new Promise((resolve) => stream.once('drain', resolve));
-      }
-      if (mainWindow && !mainWindow.webContents.isDestroyed() && total > 0) {
-        mainWindow.webContents.send('db:downloadProgress', {
-          downloaded, total,
-          percent: Math.round((downloaded / total) * 100),
-        });
-      }
-    }
-
-    await new Promise((resolve, reject) => {
-      stream.on('finish', resolve);
-      stream.on('error', reject);
-      stream.end();
-    });
-
-    fs.renameSync(destPath + '.downloading', destPath);
-    return { success: true, size: fs.statSync(destPath).size };
-  } catch (e) {
-    try { fs.unlinkSync(destPath + '.downloading'); } catch {}
-    if (controller?.signal.aborted) {
-      return { success: false, error: 'انتهت مهلة التحميل' };
-    }
-    return { success: false, error: e.message };
+    const count = db.prepare('SELECT COUNT(*) as count FROM books').get().count;
+    if (count === 0) return { ready: false, reason: 'empty' };
+    const hasContent = db.prepare('SELECT COUNT(*) as count FROM books WHERE has_content = 1').get().count;
+    return { ready: hasContent > 0, totalBooks: count, contentBooks: hasContent };
+  } catch {
+    return { ready: false, reason: 'error' };
   }
 });
 

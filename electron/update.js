@@ -58,14 +58,19 @@ function decodeCp1256(buf) {
 async function checkForUpdates() {
   ensureTmpDir();
   const apiBooks = await fetchJson(BOOKS_API);
-  const db = new Database(path.join(__dirname, '..', 'data', 'shamela.db'), { readonly: true });
+  const dbPath = path.join(__dirname, '..', 'data', 'shamela.db');
 
   const existing = new Map();
-  const rows = db.prepare('SELECT id, shamela_id, title, has_content FROM books').all();
-  for (const r of rows) {
-    existing.set(String(r.id), r);
+  try {
+    const db = new Database(dbPath, { readonly: true });
+    const rows = db.prepare('SELECT id, shamela_id, title, has_content FROM books').all();
+    for (const r of rows) {
+      existing.set(String(r.id), r);
+    }
+    db.close();
+  } catch (e) {
+    console.log('No existing DB or schema — will download all books');
   }
-  db.close();
 
   const newBooks = [];
   const updatedBooks = [];
@@ -231,6 +236,10 @@ async function runUpdates(booksToInstall, onProgress) {
   const writeDb = new Database(writeDbPath);
   writeDb.pragma('journal_mode = WAL');
   writeDb.pragma('synchronous = OFF');
+
+  // Ensure schema exists
+  const { initSchema } = require('./dbSchema');
+  initSchema(writeDb);
 
   for (let i = 0; i < booksToInstall.length; i++) {
     const book = booksToInstall[i];
