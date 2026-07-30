@@ -7,10 +7,29 @@ const StreamZip = require('node-stream-zip');
 
 const API_BASE = 'https://eshamila.net';
 const BOOKS_API = `${API_BASE}/api/books`;
-const TMP_DIR = path.join(__dirname, '..', 'data', '.update-tmp');
+
+// Settable from main.js so paths match production userData dir
+let _tmpDir = null;
+let _dbPath = null;
+
+function setPaths(tmpDir, dbPath) {
+  _tmpDir = tmpDir;
+  _dbPath = dbPath;
+}
+
+function getTmpDir() {
+  if (!_tmpDir) _tmpDir = path.join(__dirname, '..', 'data', '.update-tmp');
+  return _tmpDir;
+}
+
+function getDbPath() {
+  if (!_dbPath) _dbPath = path.join(__dirname, '..', 'data', 'shamela.db');
+  return _dbPath;
+}
 
 function ensureTmpDir() {
-  if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR, { recursive: true });
+  const dir = getTmpDir();
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
 function fetchJson(url) {
@@ -58,18 +77,17 @@ function decodeCp1256(buf) {
 async function checkForUpdates() {
   ensureTmpDir();
   const apiBooks = await fetchJson(BOOKS_API);
-  const dbPath = path.join(__dirname, '..', 'data', 'shamela.db');
-
   const existing = new Map();
+
   try {
-    const db = new Database(dbPath, { readonly: true });
+    const db = new Database(getDbPath(), { readonly: true });
     const rows = db.prepare('SELECT id, shamela_id, title, has_content FROM books').all();
     for (const r of rows) {
       existing.set(String(r.id), r);
     }
     db.close();
   } catch (e) {
-    console.log('No existing DB or schema — will download all books');
+    console.log('checkForUpdates: no existing DB, will download all');
   }
 
   const newBooks = [];
@@ -98,7 +116,7 @@ async function checkForUpdates() {
 async function installBook(book, writeDb, onProgress) {
   const zipUrl = `${API_BASE}/${book.book_zip}`;
   const zipName = path.basename(book.book_zip);
-  const zipPath = path.join(TMP_DIR, zipName);
+  const zipPath = path.join(getTmpDir(), zipName);
 
   onProgress(`جاري تحميل: ${book.book_name}`);
   try {
@@ -119,7 +137,7 @@ async function installBook(book, writeDb, onProgress) {
       await zip.close();
       return;
     }
-    bokFile = path.join(TMP_DIR, bokEntry[0]);
+    bokFile = path.join(getTmpDir(), bokEntry[0]);
     await zip.extract(bokEntry[0], bokFile);
     await zip.close();
   } catch (e) {
@@ -232,12 +250,10 @@ async function installBook(book, writeDb, onProgress) {
 
 async function runUpdates(booksToInstall, onProgress) {
   ensureTmpDir();
-  const writeDbPath = path.join(__dirname, '..', 'data', 'shamela.db');
-  const writeDb = new Database(writeDbPath);
+  const writeDb = new Database(getDbPath());
   writeDb.pragma('journal_mode = WAL');
   writeDb.pragma('synchronous = OFF');
 
-  // Ensure schema exists
   const { initSchema } = require('./dbSchema');
   initSchema(writeDb);
 
@@ -256,10 +272,9 @@ async function runUpdates(booksToInstall, onProgress) {
 
   writeDb.close();
 
-  // Cleanup temp
-  try { fs.rmSync(TMP_DIR, { recursive: true, force: true }); } catch (e) {}
+  try { fs.rmSync(getTmpDir(), { recursive: true, force: true }); } catch (e) {}
 
   onProgress('اكتمل التحديث', booksToInstall.length, booksToInstall.length);
 }
 
-module.exports = { checkForUpdates, runUpdates, installBook };
+module.exports = { checkForUpdates, runUpdates, installBook, setPaths };

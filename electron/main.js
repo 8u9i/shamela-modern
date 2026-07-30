@@ -346,10 +346,17 @@ ipcMain.handle('getPdfPath', (event, relativePath) => {
 
 // ============ Update / Sync IPC Handlers ============
 
+function setupUpdaterPaths() {
+  const updater = require('./update');
+  const tmpDir = path.join(getDataDir(), '.update-tmp');
+  updater.setPaths(tmpDir, getDbPath());
+}
+
 let updateInProgress = false;
 
 ipcMain.handle('db:checkUpdates', async () => {
   try {
+    setupUpdaterPaths();
     const updater = require('./update');
     return await updater.checkForUpdates();
   } catch (e) {
@@ -362,6 +369,7 @@ ipcMain.handle('db:startUpdate', async (event, { bookIds } = {}) => {
   if (updateInProgress) return { error: 'التحديث قيد التشغيل بالفعل' };
   updateInProgress = true;
   try {
+    setupUpdaterPaths();
     const updater = require('./update');
     const result = await updater.checkForUpdates();
     const toInstall = bookIds
@@ -613,13 +621,15 @@ app.whenReady().then(() => {
   userDb = openUserDatabase();
   servicesDb = openServicesDatabase();
 
+  const pdfDir = (() => { try { return fs.realpathSync(PDF_DIR); } catch { return null; } })();
+
   protocol.handle('shamela-pdf', (request) => {
     try {
+      if (!pdfDir) return new Response('Not Found', { status: 404 });
       const raw = request.url.slice('shamela-pdf:///'.length);
       const decoded = decodeURIComponent(raw);
       const filePath = decoded.replace(/\//g, path.sep);
       const resolved = fs.realpathSync(filePath);
-      const pdfDir = fs.realpathSync(PDF_DIR);
       if (resolved !== pdfDir && !resolved.startsWith(pdfDir + path.sep)) {
         return new Response('Forbidden', { status: 403 });
       }

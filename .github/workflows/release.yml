@@ -54,48 +54,10 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: false
         run: npx electron-builder --publish always
 
-  publish-db:
-    name: Upload DB notice
-    runs-on: ubuntu-latest
-    needs: [release]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Create DB notice
-        run: |
-          cat > DB_README.md << 'EOF'
-          # قاعدة بيانات المكتبة الشاملة الإباضية
-
-          هذه القاعدة مطلوبة لتشغيل تطبيق المكتبة الشاملة الإباضية.
-
-          ## التثبيت التلقائي
-
-          التطبيق سيطلب تحميل قاعدة البيانات تلقائياً عند أول تشغيل. كل ما عليك هو اتصال بالإنترنت.
-
-          ## التثبيت اليدوي
-
-          إذا أردت وضع قاعدة البيانات يدوياً:
-
-          1. حمّل ملف shamela.db من الرابط: https://eshamila.net/shamela.db
-          2. ضع الملف في أحد المجلدات التالية حسب نظامك:
-             - ويندوز: %APPDATA%/Al-Maktaba Al-Shamela/data/
-             - ماك: ~/Library/Application Support/Al-Maktaba Al-Shamela/data/
-             - لينكس: ~/.config/Al-Maktaba Al-Shamela/data/
-
-          ملاحظة: التطبيق يبحث عن shamela.db في مجلد data داخل مجلد إعدادات التطبيق.
-          EOF
-
-      - name: Upload DB notice to release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release upload v${{ needs.release.outputs.version }} DB_README.md --clobber || echo "no release yet"
-
   publish-release:
     name: Publish release
     runs-on: ubuntu-latest
-    needs: [release, publish-db]
+    needs: [release]
     if: always()
     steps:
       - name: Checkout code
@@ -107,7 +69,7 @@ jobs:
           ## 📦 الإصدار
 
           ⚠️ هذا المشروع غير رسمي — المطور ليس عضوًا في فريق المكتبة الشاملة.
-          قاعدة البيانات لا تُضمّن مع الإصدار. يشملها التطبيق تلقائياً عند أول تشغيل عبر رابط التحميل.
+          قاعدة البيانات تُبنى تلقائياً عند أول تشغيل عبر API الموقع الرسمي.
 
           ### ⬇ التحميل
 
@@ -115,8 +77,7 @@ jobs:
           |------|--------|
           | `Al-Maktaba-Al-Shamela-Setup-*.exe` | ويندوز |
           | `Al-Maktaba-Al-Shamela-*-arm64.dmg` | ماك (Apple Silicon) |
-          | `Al-Maktaba-Al-Shamela-*.AppImage` | لينكس |
-          | `Al-Maktaba-Al-Shamela-*.deb` | لينكس (deb) |
+          | `Al-Maktaba-Al-Shamela-*.deb` | لينكس |
 
           راجع [CHANGELOG.md](https://github.com/8u9i/shamela-modern/blob/master/CHANGELOG.md) للتفاصيل الكاملة.
           EOF
