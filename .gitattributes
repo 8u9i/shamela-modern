@@ -1,0 +1,26 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Force LF for all JS/TS source files (Unix line endings)
+*.js text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.jsx text eol=lf
+*.css text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.md text eol=lf
+*.html text eol=lf
+*.svg text eol=lf
+
+# Binary files
+*.png binary
+*.ico binary
+*.icns binary
+*.jpg binary
+*.webp binary
+*.exe binary
+*.dmg binary
+*.AppImage binary
+*.deb binary
+*.db binary
