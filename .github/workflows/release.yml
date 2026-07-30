@@ -105,6 +105,9 @@ jobs:
     needs: [release, publish-db]
     if: always()
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
       - name: Generate release notes
         run: |
           cat > RELEASE_NOTES.md << 'EOF'
