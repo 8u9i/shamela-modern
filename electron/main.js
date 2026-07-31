@@ -289,13 +289,16 @@ ipcMain.handle('db:search', (event, { query, limit = 50 }) => {
   if (!db || !query) return [];
 
   try {
+    const { toFtsQuery } = require('./arabicNormalize');
+    const ftsQuery = toFtsQuery(query);
+    if (!ftsQuery) return [];
     const results = db.prepare(`
       SELECT b.*, snippet(books_fts, 0, '<mark>', '</mark>', '...', 30) as snippet
       FROM books_fts
       JOIN books b ON books_fts.rowid = b.id
       WHERE books_fts MATCH ?
       LIMIT ?
-    `).all(query, limit);
+    `).all(ftsQuery, limit);
     return results;
   } catch (e) {
     console.error('Search error:', e);
@@ -306,27 +309,56 @@ ipcMain.handle('db:search', (event, { query, limit = 50 }) => {
 ipcMain.handle('db:searchContent', (event, { query, bookId, limit = 50 }) => {
   if (!db || !query) return [];
 
-  try {
-    let sql = `
-      SELECT bc.*, b.title as book_title
-      FROM book_content bc
-      JOIN books b ON bc.book_id = b.id
-      WHERE bc.content LIKE ?
-    `;
-    const params = [`%${query}%`];
+  const { toFtsQuery } = require('./arabicNormalize');
+  const ftsQuery = toFtsQuery(query);
 
+  try {
+    if (!ftsQuery) throw new Error('empty fts query');
+    if (contentIndexingActive) throw new Error('content index rebuilding');
+    const hasFts = db
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='book_content_fts'")
+      .get();
+    if (!hasFts) throw new Error('book_content_fts missing');
+
+    let sql = `
+      SELECT bc.id, bc.book_id, bc.page, bc.content,
+             b.title as book_title, b.author_name,
+             snippet(book_content_fts, 2, '<mark>', '</mark>', '...', 40) as snippet
+      FROM book_content_fts
+      JOIN book_content bc ON bc.id = book_content_fts.rowid
+      JOIN books b ON bc.book_id = b.id
+      WHERE book_content_fts MATCH ?
+    `;
+    const params = [ftsQuery];
     if (bookId) {
       sql += ' AND bc.book_id = ?';
       params.push(bookId);
     }
-
     sql += ' LIMIT ?';
     params.push(limit);
 
     return db.prepare(sql).all(...params);
   } catch (e) {
-    console.error('Content search error:', e);
-    return [];
+    // FTS index not available yet (pre-backfill DB): fall back to LIKE scan.
+    try {
+      let sql = `
+        SELECT bc.*, b.title as book_title, b.author_name, NULL as snippet
+        FROM book_content bc
+        JOIN books b ON bc.book_id = b.id
+        WHERE bc.content LIKE ?
+      `;
+      const params = [`%${query}%`];
+      if (bookId) {
+        sql += ' AND bc.book_id = ?';
+        params.push(bookId);
+      }
+      sql += ' LIMIT ?';
+      params.push(limit);
+      return db.prepare(sql).all(...params);
+    } catch (e2) {
+      console.error('Content search error:', e2);
+      return [];
+    }
   }
 });
 
@@ -404,6 +436,83 @@ ipcMain.handle('getPdfPath', async (event, relativePath) => {
   return ensurePdfDownloaded(relativePath);
 });
 
+// ============ Full-text content index ============
+
+let contentIndexingActive = false;
+let indexWorker = null;
+
+// Starts the book_content_fts rebuild in a worker thread so the main process
+// never blocks. No-op while already running or during an update.
+function startContentIndexing() {
+  if (!db || contentIndexingActive || updateInProgress) return;
+  const { needsContentRebuild } = require('./searchIndex');
+  if (!needsContentRebuild(db)) return;
+  const { Worker } = require('worker_threads');
+  contentIndexingActive = true;
+  try {
+    indexWorker = new Worker(path.join(__dirname, 'searchIndexWorker.js'), {
+      workerData: { dbPath: getDbPath(), batchSize: 10000 },
+    });
+    indexWorker.on('message', (msg) => {
+      if (!msg) return;
+      if (msg.type === 'error') {
+        console.error('Content FTS rebuild failed:', msg.message);
+      } else if (msg.type === 'done' && !msg.stopped) {
+        console.log('Content FTS rebuild complete:', msg.done, 'rows');
+      }
+    });
+    indexWorker.on('error', (e) => {
+      console.error('Content FTS rebuild failed:', e.message);
+      contentIndexingActive = false;
+      indexWorker = null;
+    });
+    indexWorker.on('exit', () => {
+      contentIndexingActive = false;
+      indexWorker = null;
+    });
+  } catch (e) {
+    console.error('Content FTS rebuild failed to start:', e.message);
+    contentIndexingActive = false;
+    indexWorker = null;
+  }
+}
+
+// Asks the worker to stop at the next batch boundary and resolves once it has
+// exited. Safe to call when no worker is running.
+function stopContentIndexing() {
+  return new Promise((resolve) => {
+    if (!indexWorker) {
+      contentIndexingActive = false;
+      resolve();
+      return;
+    }
+    const worker = indexWorker;
+    const onExit = () => {
+      worker.removeListener('exit', onExit);
+      contentIndexingActive = false;
+      indexWorker = null;
+      resolve();
+    };
+    worker.on('exit', onExit);
+    try {
+      worker.postMessage({ type: 'stop' });
+    } catch (e) {
+      contentIndexingActive = false;
+      indexWorker = null;
+      resolve();
+    }
+  });
+}
+
+ipcMain.handle('db:contentIndexStatus', () => {
+  if (!db) return { indexing: false, contentRows: 0, ftsRows: 0 };
+  const { needsContentRebuild } = require('./searchIndex');
+  return {
+    indexing: contentIndexingActive,
+    needsRebuild: needsContentRebuild(db),
+  };
+});
+
 // ============ Update / Sync IPC Handlers ============
 
 function setupUpdaterPaths() {
@@ -429,6 +538,7 @@ ipcMain.handle('db:startUpdate', async (event, { bookIds } = {}) => {
   if (updateInProgress) return { error: 'التحديث قيد التشغيل بالفعل' };
   updateInProgress = true;
   try {
+    await stopContentIndexing();
     setupUpdaterPaths();
     const updater = require('./update');
     const result = await updater.checkForUpdates();
@@ -450,6 +560,15 @@ ipcMain.handle('db:startUpdate', async (event, { bookIds } = {}) => {
     });
 
     updateInProgress = false;
+
+    // Sync the title/author FTS and finish any pending content-index rebuild.
+    try {
+      require('./searchIndex').ensureSearchIndex(db);
+      startContentIndexing();
+    } catch (e) {
+      console.error('Search index sync after update failed:', e.message);
+    }
+
     return { installed: toInstall.length };
   } catch (e) {
     updateInProgress = false;
@@ -702,6 +821,14 @@ app.whenReady().then(() => {
     console.error('Failed to apply PDF catalog:', e.message);
   }
 
+  // Ensure FTS tables exist and start a background content-index rebuild when needed.
+  try {
+    require('./searchIndex').ensureSearchIndex(db);
+    startContentIndexing();
+  } catch (e) {
+    console.error('Failed to init search index:', e.message);
+  }
+
   const pdfDir = (() => { try { return fs.realpathSync(getPdfDir()); } catch { return null; } })();
 
   protocol.handle('shamela-pdf', (request) => {
@@ -731,13 +858,14 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  if (db) { db.close(); db = null; }
-  if (servicesDb) { servicesDb.close(); servicesDb = null; }
-  if (userDb) { userDb.close(); userDb = null; }
+  if (db) { try { db.close(); } catch (e) { console.error('close db failed:', e.message); } db = null; }
+  if (servicesDb) { try { servicesDb.close(); } catch (e) {} servicesDb = null; }
+  if (userDb) { try { userDb.close(); } catch (e) {} userDb = null; }
   if (process.platform !== 'darwin') app.quit();
 });
 
 app.on('before-quit', () => {
-  if (db) { db.close(); db = null; }
-  if (userDb) { userDb.close(); userDb = null; }
+  stopContentIndexing();
+  if (db) { try { db.close(); } catch (e) { console.error('close db failed:', e.message); } db = null; }
+  if (userDb) { try { userDb.close(); } catch (e) {} userDb = null; }
 });

@@ -53,6 +53,8 @@ export interface SearchResult extends Book {
 
 export interface ContentSearchResult extends BookContent {
   book_title: string;
+  author_name?: string | null;
+  snippet?: string;
 }
 
 export interface DbStats {

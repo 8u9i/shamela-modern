@@ -673,7 +673,7 @@ export function BookReader({ book, onBack, onOpenAuthor, onOpenPdf }: BookReader
                       >
                         <div className="text-xs text-secondary-foreground leading-relaxed line-clamp-2"
                           dangerouslySetInnerHTML={{
-                            __html: item.content
+                            __html: item.snippet || item.content
                               .replace(new RegExp(bookSearchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'),
                                 (m: string) => `<mark class="search-highlight">${m}</mark>`)
                               .slice(0, 300)

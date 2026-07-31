@@ -337,9 +337,18 @@ async function installBookZip(book, zipPath, writeDb, onProgress) {
       const insertContent = writeDb.prepare(`
         INSERT INTO book_content (book_id, page, part, content) VALUES (?, ?, ?, ?)
       `);
+      const contentIds = [];
       for (let i = 0; i < contentRows.length; i++) {
-        insertContent.run(bookId, i + 1, 0, contentRows[i]);
+        const info = insertContent.run(bookId, i + 1, 0, contentRows[i]);
+        contentIds.push(info.lastInsertRowid);
       }
+
+      const { indexBookContent } = require('./searchIndex');
+      indexBookContent(
+        writeDb,
+        bookId,
+        contentRows.map((c, i) => ({ id: contentIds[i], content: c }))
+      );
 
       writeDb.prepare('DELETE FROM book_toc WHERE book_id = ?').run(bookId);
       if (tocRows.length > 0) {
@@ -379,6 +388,8 @@ async function runUpdates(booksToInstall, onProgress) {
 
   const { initSchema } = require('./dbSchema');
   initSchema(writeDb);
+  const { ensureSearchIndex } = require('./searchIndex');
+  ensureSearchIndex(writeDb);
 
   const total = booksToInstall.length;
   const pendingDownloads = [];

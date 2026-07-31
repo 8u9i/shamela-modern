@@ -119,7 +119,7 @@ export function SearchResults({ query, onOpenBook, compact }: SearchResultsProps
                   <div
                     className="text-muted-foreground text-[10px] line-clamp-2 mt-0.5"
                     dangerouslySetInnerHTML={{
-                      __html: highlightText(
+                      __html: result.snippet || highlightText(
                         result.content.length > 200
                           ? result.content.substring(0, 200) + '...'
                           : result.content,
@@ -238,7 +238,7 @@ export function SearchResults({ query, onOpenBook, compact }: SearchResultsProps
                   <p
                     className="text-muted-foreground text-sm leading-relaxed line-clamp-3"
                     dangerouslySetInnerHTML={{
-                      __html: highlightText(
+                      __html: result.snippet || highlightText(
                         result.content.length > 300
                           ? result.content.substring(0, 300) + '...'
                           : result.content,
