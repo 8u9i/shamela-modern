@@ -235,11 +235,11 @@ async function installBookZip(book, zipPath, writeDb, onProgress) {
       const tbl = reader.getTable(contentTable);
       if (tbl.rowCount > 0) {
         const rows = tbl.getData({ columns: tbl.getColumnNames() }).slice();
-        rows.sort((a, b) => {
-          const pa = Number(a.page || 0) || Number(a.id || 0);
-          const pb = Number(b.page || 0) || Number(b.id || 0);
-          return pa - pb || Number(a.id || 0) - Number(b.id || 0);
-        });
+        // Content is ordered by row id (physical order). The `page` column is the
+        // printed page number and resets per part, so it must not be used for sorting.
+        if (rows.some((r) => r.id != null)) {
+          rows.sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
+        }
         for (const r of rows) {
           const text = decodeCp1256(Buffer.from(r.nass || r.com || r.Bk || '', 'latin1')).trim();
           if (!text) continue;
@@ -281,9 +281,9 @@ async function installBookZip(book, zipPath, writeDb, onProgress) {
           for (const r of rows) {
             const tocTitle = decodeCp1256(Buffer.from(r.tit || '', 'latin1')).trim();
             if (!tocTitle) continue;
-            const page = Number(r.sub) > 0
-              ? Number(r.sub)
-              : (idToPage.get(Number(r.id)) || 1);
+            // The TOC row id references a content row; `sub` is a section flag,
+            // not a page number. Map the row id to its sequential page position.
+            const page = idToPage.get(Number(r.id)) || 1;
             tocRows.push({ title: tocTitle, level: Number(r.lvl) || 1, page });
           }
         }
