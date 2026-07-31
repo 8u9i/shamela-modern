@@ -411,6 +411,14 @@ async function runUpdates(booksToInstall, onProgress) {
     }
   }
 
+  // Backfill books.pdf_path for catalog books installed in this run.
+  try {
+    const updated = require('./pdfCatalog').applyPdfCatalog(writeDb);
+    if (updated > 0) console.log('PDF catalog applied:', updated, 'books');
+  } catch (e) {
+    console.error('Failed to apply PDF catalog after update:', e.message);
+  }
+
   writeDb.close();
 
   try { fs.rmSync(getTmpDir(), { recursive: true, force: true }); } catch (e) {}
@@ -418,4 +426,4 @@ async function runUpdates(booksToInstall, onProgress) {
   onProgress('اكتمل التحديث', booksToInstall.length, booksToInstall.length);
 }
 
-module.exports = { checkForUpdates, runUpdates, installBook, setPaths };
+module.exports = { checkForUpdates, runUpdates, installBook, setPaths, downloadFile };

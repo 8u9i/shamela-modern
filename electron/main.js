@@ -11,14 +11,21 @@ let servicesDb;
 
 const isDev = process.env.NODE_ENV === 'development';
 const appRoot = path.join(__dirname, '..');
-const PDF_DIR = process.env.SHAMELA_PDF_DIR
-  || (isDev ? path.join(appRoot, '..', 'eshamila.net', 'pdf') : path.join(process.resourcesPath, 'pdf'));
+
+// Local PDF library (dev: the desktop install next to the repo; prod: a writable
+// download cache under userData). Overridable for tests.
+function getPdfDir() {
+  if (process.env.SHAMELA_PDF_DIR) return process.env.SHAMELA_PDF_DIR;
+  return isDev
+    ? path.join(appRoot, '..', 'eshamila.net', 'pdf')
+    : path.join(app.getPath('userData'), 'pdf');
+}
 
 const resourcesPath = process.resourcesPath || '';
 const packagedDb = path.join(resourcesPath, 'shamela.db');
 const usePackaged = resourcesPath ? fs.existsSync(packagedDb) : false;
 
-console.log('PDF_DIR:', PDF_DIR);
+console.log('PDF_DIR:', getPdfDir());
 console.log('  usePackaged:', usePackaged);
 
 protocol.registerSchemesAsPrivileged([
@@ -328,20 +335,73 @@ ipcMain.handle('db:getRecentBooks', () => {
   return db.prepare('SELECT * FROM books WHERE has_content = 1 ORDER BY RANDOM() LIMIT 20').all();
 });
 
-ipcMain.handle('getPdfPath', (event, relativePath) => {
+const pdfDownloadsInFlight = new Map();
+
+// Canonical destination under PDF_DIR for a catalog relative path (no existence check).
+function pdfDestFor(relativePath) {
   if (!relativePath) return null;
-  const pdfDirResolved = path.resolve(PDF_DIR);
-  const candidates = [
-    relativePath.replace(/^Rel:/, '').replace(/^pdf[/\\]/, ''),
-    relativePath.replace(/^Rel:/, ''),
-    relativePath,
-  ];
-  for (const c of candidates) {
-    const fullPath = path.resolve(path.join(PDF_DIR, c));
-    if (!fullPath.startsWith(pdfDirResolved + path.sep) && fullPath !== pdfDirResolved) continue;
-    if (fs.existsSync(fullPath)) return fullPath;
-  }
+  const pdfDirResolved = path.resolve(getPdfDir());
+  const normalized = String(relativePath)
+    .replace(/\\/g, path.sep)
+    .replace(/^Rel:/, '')
+    .replace(/^pdf[/\\]/, '');
+  const fullPath = path.resolve(path.join(pdfDirResolved, normalized));
+  if (!fullPath.startsWith(pdfDirResolved + path.sep) && fullPath !== pdfDirResolved) return null;
+  return fullPath;
+}
+
+function resolveInPdfDir(relativePath) {
+  const fullPath = pdfDestFor(relativePath);
+  if (fullPath && fs.existsSync(fullPath)) return fullPath;
   return null;
+}
+
+async function ensurePdfDownloaded(relativePath) {
+  const entry = require('./pdfCatalog').getEntryByRel(relativePath);
+  if (!entry || !entry.url) return null;
+
+  if (pdfDownloadsInFlight.has(entry.rel)) {
+    try { await pdfDownloadsInFlight.get(entry.rel); } catch (e) {}
+    const existing = pdfDestFor(entry.rel);
+    if (existing && fs.existsSync(existing)) return existing;
+    return null;
+  }
+
+  const destPath = pdfDestFor(entry.rel);
+  if (!destPath) return null;
+  if (fs.existsSync(destPath)) return destPath;
+
+  const promise = (async () => {
+    try {
+      const { downloadFile } = require('./update');
+      fs.mkdirSync(path.dirname(destPath), { recursive: true });
+      const base = process.env.SHAMELA_API_BASE || 'https://eshamila.net';
+      await downloadFile(`${base}/${entry.url}`, destPath);
+      if (!fs.existsSync(destPath) || fs.statSync(destPath).size === 0) {
+        try { fs.unlinkSync(destPath); } catch (e) {}
+        return null;
+      }
+      return destPath;
+    } catch (e) {
+      try { fs.unlinkSync(destPath); } catch (err) {}
+      console.error(`PDF download failed for ${entry.rel}:`, e.message);
+      return null;
+    }
+  })();
+
+  pdfDownloadsInFlight.set(entry.rel, promise);
+  try {
+    return await promise;
+  } finally {
+    pdfDownloadsInFlight.delete(entry.rel);
+  }
+}
+
+ipcMain.handle('getPdfPath', async (event, relativePath) => {
+  if (!relativePath) return null;
+  const localPath = resolveInPdfDir(relativePath);
+  if (localPath) return localPath;
+  return ensurePdfDownloaded(relativePath);
 });
 
 // ============ Update / Sync IPC Handlers ============
@@ -634,7 +694,15 @@ app.whenReady().then(() => {
   userDb = openUserDatabase();
   servicesDb = openServicesDatabase();
 
-  const pdfDir = (() => { try { return fs.realpathSync(PDF_DIR); } catch { return null; } })();
+  // Backfill books.pdf_path from the PDF catalog (idempotent, safe on empty DB).
+  try {
+    const updated = require('./pdfCatalog').applyPdfCatalog(db);
+    console.log('PDF catalog applied:', updated, 'books updated');
+  } catch (e) {
+    console.error('Failed to apply PDF catalog:', e.message);
+  }
+
+  const pdfDir = (() => { try { return fs.realpathSync(getPdfDir()); } catch { return null; } })();
 
   protocol.handle('shamela-pdf', (request) => {
     try {

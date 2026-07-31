@@ -1,13 +1,44 @@
 import { _electron as electron } from 'playwright';
 import { test, expect } from '@playwright/test';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 
 let app: Awaited<ReturnType<typeof electron.launch>>;
 let window: Awaited<ReturnType<typeof app.firstWindow>>;
 
+const PDF_TEST_CATALOG = path.join(os.tmpdir(), 'shamela-e2e-pdf-catalog.json');
+const PDF_TEST_DIR = path.join(os.tmpdir(), 'shamela-e2e-pdf-dir');
+
 test.beforeAll(async () => {
+  fs.mkdirSync(PDF_TEST_DIR, { recursive: true });
+  fs.writeFileSync(
+    PDF_TEST_CATALOG,
+    JSON.stringify({
+      generated: '2026-01-01T00:00:00.000Z',
+      source: 'e2e-fixture',
+      count: 1,
+      books: {
+        '1001276': [
+          {
+            rel: 'Rel:pdf\\مرشد الطلاب تلخيص لشرح قصيدة تحريض الطلبة\\1001276.pdf',
+            url: 'upload/book_pdf/1818545490037109.pdf',
+            part: 0,
+          },
+        ],
+      },
+    }),
+    'utf8'
+  );
+
   app = await electron.launch({
     args: ['.'],
-    env: { ...process.env, NODE_ENV: 'production' },
+    env: {
+      ...process.env,
+      NODE_ENV: 'production',
+      SHAMELA_PDF_CATALOG: PDF_TEST_CATALOG,
+      SHAMELA_PDF_DIR: PDF_TEST_DIR,
+    },
   });
   window = await app.firstWindow();
   await window.waitForLoadState('networkidle');
@@ -200,6 +231,35 @@ test.describe('Book Interaction', () => {
     // Toolbar buttons (TOC is conditional on toc.length > 0)
     const searchBtn = window.locator('button:has-text("بحث في الصفحة")');
     await expect(searchBtn).toBeVisible({ timeout: 5000 });
+  });
+});
+
+test.describe('PDF on-demand download', () => {
+  const PDF_REL = 'Rel:pdf\\مرشد الطلاب تلخيص لشرح قصيدة تحريض الطلبة\\1001276.pdf';
+
+  test('getPdfPath downloads a catalog PDF on demand', async () => {
+    const result = await window.evaluate(
+      (rel) => window.api.getPdfPath(rel),
+      PDF_REL
+    );
+    expect(result).toBeTruthy();
+    expect(fs.existsSync(result!)).toBe(true);
+    const stat = fs.statSync(result!);
+    expect(stat.size).toBeGreaterThan(0);
+  });
+
+  test('getPdfPath is cached after first download', async () => {
+    const first = await window.evaluate((rel) => window.api.getPdfPath(rel), PDF_REL);
+    const second = await window.evaluate((rel) => window.api.getPdfPath(rel), PDF_REL);
+    expect(second).toBe(first);
+  });
+
+  test('getPdfPath returns null for unknown PDF', async () => {
+    const result = await window.evaluate(
+      (rel) => window.api.getPdfPath(rel),
+      'Rel:pdf\\كتاب غير موجود\\9999999.pdf'
+    );
+    expect(result).toBeNull();
   });
 });
 

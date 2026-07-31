@@ -1,6 +1,6 @@
 {
   "name": "shamela-modern",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "description": "المكتبة الشاملة الإباضية — تطبيق سطح مكتب حديث للمكتبة الشاملة",
   "author": {
     "name": "المكتبة الشاملة الإباضية",
@@ -11,6 +11,8 @@
     "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
     "build": "vite build",
     "convert": "node scripts/convert.js",
+    "pdf-catalog": "node scripts/export-pdf-catalog.js",
+    "test": "node --test \"electron/*.test.js\"",
     "package:win": "npm run build && electron-builder --win",
     "package:mac": "npm run build && electron-builder --mac",
     "package:linux": "npm run build && electron-builder --linux",
@@ -76,7 +78,12 @@
     "asarUnpack": [
       "node_modules/better-sqlite3/**"
     ],
-    "extraResources": [],
+    "extraResources": [
+      {
+        "from": "resources/pdf-catalog.json",
+        "to": "pdf-catalog.json"
+      }
+    ],
     "nsis": {
       "oneClick": false,
       "perMachine": false,
