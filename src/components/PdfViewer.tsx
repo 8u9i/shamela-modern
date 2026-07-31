@@ -19,9 +19,9 @@ export function PdfViewer({ relativePath, bookTitle, onBack }: PdfViewerProps) {
     try {
       const fullPath = await window.api.getPdfPath(relativePath);
       if (fullPath) {
-        const parts = fullPath.split(/[\\/]/);
-        const encoded = parts.map((s, i) => i === 0 ? s : encodeURIComponent(s)).join('/');
-        setPdfUrl(`shamela-pdf:///${encoded}`);
+        const rel = relativePath.replace(/\\/g, '/').replace(/^Rel:/, '').replace(/^pdf\//, '');
+        const encoded = rel.split('/').map(encodeURIComponent).join('/');
+        setPdfUrl(`shamela-pdf://local/${encoded}`);
       } else {
         setError(true);
       }

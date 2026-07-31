@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, protocol, net, dialog } = require('electron');
 const path = require('path');
+const { pathToFileURL } = require('url');
 const Database = require('better-sqlite3');
 const fs = require('fs');
 const autoUpdater = require('./autoUpdater');
@@ -834,16 +835,15 @@ app.whenReady().then(() => {
   protocol.handle('shamela-pdf', (request) => {
     try {
       if (!pdfDir) return new Response('Not Found', { status: 404 });
-      const raw = request.url.slice('shamela-pdf:///'.length);
-      const decoded = decodeURIComponent(raw);
-      const filePath = decoded.replace(/\//g, path.sep);
-      const resolved = fs.realpathSync(filePath);
+      const url = new URL(request.url);
+      const relativePath = decodeURIComponent(url.pathname.replace(/^\//, ''));
+      const dest = pdfDestFor(relativePath);
+      if (!dest) return new Response('Forbidden', { status: 403 });
+      const resolved = fs.realpathSync(dest);
       if (resolved !== pdfDir && !resolved.startsWith(pdfDir + path.sep)) {
         return new Response('Forbidden', { status: 403 });
       }
-      const parts = resolved.split(path.sep);
-      const fileUrl = 'file:///' + parts.map((s, i) => i === 0 ? s : encodeURIComponent(s)).join('/');
-      return net.fetch(fileUrl);
+      return net.fetch(pathToFileURL(resolved).toString());
     } catch {
       return new Response('Not Found', { status: 404 });
     }

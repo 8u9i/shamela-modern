@@ -261,6 +261,22 @@ test.describe('PDF on-demand download', () => {
     );
     expect(result).toBeNull();
   });
+
+  test('shamela-pdf protocol serves the downloaded PDF', async () => {
+    await window.evaluate((rel) => window.api.getPdfPath(rel), PDF_REL);
+    const respPromise = window.waitForResponse((r) => r.url().startsWith('shamela-pdf://'));
+    await window.evaluate(async (rel) => {
+      const relative = rel.replace(/\\/g, '/').replace(/^Rel:/, '').replace(/^pdf\//, '');
+      const encoded = relative.split('/').map(encodeURIComponent).join('/');
+      const iframe = document.createElement('iframe');
+      iframe.src = `shamela-pdf://local/${encoded}`;
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+    }, PDF_REL);
+    const resp = await respPromise;
+    expect(resp.status()).toBe(200);
+    expect(resp.headers()['content-type']).toContain('application/pdf');
+  });
 });
 
 test.describe('Auto-Update UI', () => {
