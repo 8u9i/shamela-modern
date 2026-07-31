@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld('api', {
   deleteNote: (id) => ipcRenderer.invoke('db:deleteNote', id),
 
   exportText: (opts) => ipcRenderer.invoke('exportText', opts),
+  print: () => ipcRenderer.invoke('print:window'),
 
   findDuplicateAuthors: () => ipcRenderer.invoke('db:findDuplicateAuthors'),
   mergeDuplicateAuthors: (opts) => ipcRenderer.invoke('db:mergeDuplicateAuthors', opts),
@@ -47,6 +48,7 @@ contextBridge.exposeInMainWorld('api', {
   downloadAppUpdate: () => ipcRenderer.invoke('app:downloadUpdate'),
   quitAndInstallApp: () => ipcRenderer.invoke('app:quitAndInstall'),
   getAppVersion: () => ipcRenderer.invoke('app:getAppVersion'),
+  getInstallDirectory: () => ipcRenderer.invoke('app:getInstallDirectory'),
   onAppUpdateStatus: (callback) => {
     const handler = (event, data) => callback(data);
     ipcRenderer.on('update:status', handler);

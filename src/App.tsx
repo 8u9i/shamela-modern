@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { ViewMode, Book, Category, Author, DbStats } from './types';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
@@ -44,6 +45,7 @@ declare global {
       getNotes: (opts?: { limit?: number }) => Promise<any[]>;
       deleteNote: (id: number) => Promise<boolean>;
       exportText: (opts: { content: string; defaultName?: string }) => Promise<boolean>;
+      print: () => Promise<boolean>;
       checkUpdates: () => Promise<any>;
       startUpdate: (opts?: { bookIds?: number[] }) => Promise<any>;
       onUpdateProgress: (callback: (data: any) => void) => () => void;
@@ -53,6 +55,7 @@ declare global {
       downloadAppUpdate: () => Promise<boolean>;
       quitAndInstallApp: () => Promise<boolean>;
       getAppVersion: () => Promise<string>;
+      getInstallDirectory: () => Promise<string>;
       onAppUpdateStatus: (callback: (data: import('./types').AppUpdateStatus) => void) => () => void;
       checkDbStatus: () => Promise<{ ready: boolean; reason?: string; totalBooks?: number; contentBooks?: number }>;
     };
@@ -213,12 +216,12 @@ export default function App() {
 
   if (loading && !dbError) {
     return (
-      <div className="flex items-center justify-center h-screen bg-[var(--bg-page)]">
-        <div className="pixel-card bg-[var(--bg-card)] px-8 py-10 text-center" style={{ minWidth: 320 }}>
-          <div className="font-pixel text-[var(--accent)] text-sm mb-6 loading-pulse" style={{ lineHeight: 2 }}>
+      <div className="flex items-center justify-center h-screen bg-background">
+        <div className="pixel-card px-8 py-10 text-center" style={{ minWidth: 320 }}>
+          <div className="font-arabic text-primary text-base font-bold mb-6 loading-pulse">
             المكتبة الشاملة
           </div>
-          <div className="text-[var(--text-muted)] text-[10px] font-pixel">جاري التحميل...</div>
+          <div className="text-muted-foreground text-xs">جاري التحميل...</div>
         </div>
       </div>
     );
@@ -226,20 +229,19 @@ export default function App() {
 
   if (dbError) {
     return (
-      <div className="flex items-center justify-center h-screen bg-[var(--bg-page)]">
-        <div className="pixel-card bg-[var(--bg-card)] px-8 py-10 text-center" style={{ minWidth: 400, maxWidth: 500 }}>
-          <div className="font-pixel text-red-400 text-sm mb-4" style={{ lineHeight: 2 }}>
-            ⚠ خطأ
+      <div className="flex items-center justify-center h-screen bg-background">
+        <div className="pixel-card px-8 py-10 text-center" style={{ minWidth: 400, maxWidth: 500 }}>
+          <div className="flex items-center justify-center gap-2 text-danger text-base font-medium mb-4">
+            <AlertTriangle className="w-5 h-5" />
+            خطأ
           </div>
-          <div className="text-[var(--text-primary)] text-xs mb-4 font-pixel" style={{ lineHeight: 1.8 }}>
-            {dbError}
-          </div>
-          <div className="text-[var(--text-muted)] text-[10px] mb-3 font-pixel" style={{ lineHeight: 1.8 }}>
+          <div className="text-foreground text-sm mb-4">{dbError}</div>
+          <div className="text-muted-foreground text-xs mb-3">
             شغّل التحديث لتحميل كتب المكتبة الشاملة من الموقع الرسمي
           </div>
           <button
             onClick={() => { setShowInitialUpdate(true); setDbError(''); }}
-            className="px-6 py-3 bg-[var(--accent)] text-white text-xs font-pixel hover:opacity-80 transition-opacity"
+            className="px-6 py-3 bg-primary text-primary-foreground text-sm font-medium rounded-xl hover:bg-primary/90 transition-opacity"
           >
             بدء التحديث
           </button>
@@ -252,20 +254,18 @@ export default function App() {
   const showRightPanelSearch = view === 'search' && searchQuery.trim() !== '';
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-[var(--bg-page)]" dir="rtl">
+    <div className="flex flex-col h-screen overflow-hidden bg-background" dir="rtl">
       <Header
         onSearch={handleSearch}
         onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
         onBack={view !== 'home' ? handleBack : undefined}
         searchQuery={searchQuery}
-        stats={stats}
-        currentBook={selectedBook}
       />
 
-      <div className="flex-1 flex overflow-hidden mx-2 mb-2 pixel-card bg-[var(--bg-card)]" style={{ borderRadius: 0 }}>
+      <div className="flex-1 flex overflow-hidden mx-3 my-3 pixel-card">
         {sidebarOpen && (
           <div
-            className="flex flex-col bg-[var(--bg-surface)] overflow-hidden"
+            className="flex flex-col bg-popover overflow-hidden"
             style={{ width: splitPosition }}
           >
             <div className="flex-1 overflow-hidden">
@@ -283,7 +283,7 @@ export default function App() {
 
         {sidebarOpen && (
           <div
-            className="w-1 bg-[var(--bg-border)] hover:bg-[var(--accent)] cursor-col-resize transition-colors"
+            className="w-1.5 bg-border hover:bg-primary active:bg-primary cursor-col-resize transition-colors"
             onMouseDown={handleSplitMouseDown}
           />
         )}

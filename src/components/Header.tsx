@@ -1,18 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
-import { Book, DbStats } from '../types';
+import { Menu, Search, ArrowRight, Sun, Moon, Library } from 'lucide-react';
+import { useTheme } from '../hooks/useTheme';
 
 interface HeaderProps {
   onSearch: (query: string) => void;
   onToggleSidebar: () => void;
   onBack?: () => void;
   searchQuery: string;
-  stats: DbStats | null;
-  currentBook: Book | null;
 }
 
-export function Header({ onSearch, onToggleSidebar, onBack, searchQuery, stats, currentBook }: HeaderProps) {
+export function Header({ onSearch, onToggleSidebar, onBack, searchQuery }: HeaderProps) {
   const [query, setQuery] = useState(searchQuery);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     setQuery(searchQuery);
@@ -37,67 +37,56 @@ export function Header({ onSearch, onToggleSidebar, onBack, searchQuery, stats, 
   };
 
   return (
-    <header className="flex flex-col bg-[var(--bg-surface)] border-b-2 border-[var(--border)]">
-      {/* Menu Bar */}
-      <div className="flex items-center gap-1 px-2 py-1.5 border-b-2 border-[var(--border)] text-xs">
+    <header className="flex items-center gap-2 px-3 py-2.5 bg-card border-b border-border shrink-0">
+      <button
+        onClick={onToggleSidebar}
+        className="p-2 -ms-1 rounded-lg pixel-btn text-muted-foreground hover:text-foreground shrink-0"
+        aria-label="تبديل القائمة الجانبية"
+      >
+        <Menu className="w-4 h-4" />
+      </button>
+
+      {onBack && (
         <button
-          onClick={onToggleSidebar}
-          className="px-2 py-1 pixel-btn text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+          onClick={onBack}
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg pixel-btn text-muted-foreground hover:text-foreground shrink-0 text-xs"
         >
-          ☰
+          <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
+          رجوع
         </button>
-        {onBack && (
-          <button
-            onClick={onBack}
-            className="px-2 py-1 pixel-btn text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-          >
-            رجوع ←
-          </button>
-        )}
-        <div className="flex-1" />
-        <span className="text-[var(--text-muted)] text-[10px] font-pixel">المكتبة الشاملة الإباضية</span>
+      )}
+
+      <div className="flex items-center gap-2 min-w-0 shrink-0">
+        <span className="w-8 h-8 rounded-lg bg-primary/15 text-primary items-center justify-center hidden sm:flex shrink-0">
+          <Library className="w-4 h-4" />
+        </span>
+        <span className="text-muted-foreground text-xs font-medium truncate max-w-[180px]">
+          المكتبة الشاملة الإباضية
+        </span>
       </div>
 
-      {/* Toolbar */}
-      <div className="flex items-center gap-3 px-3 py-2">
-        {currentBook && (
-          <div className="flex items-center gap-2 ps-3 border-s-2 border-[var(--border)]">
-            <span className="text-[var(--accent)] text-sm font-medium font-arabic truncate max-w-[300px]">
-              {currentBook.title}
-            </span>
-          </div>
-        )}
+      <form onSubmit={handleSubmit} className="flex-1 min-w-0">
+        <div className="relative">
+          <Search className="absolute start-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="بحث في الكتب والمؤلفين... (Ctrl+K)"
+            className="w-full px-3 py-2 ps-8 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:border-ring focus:ring-2 focus:ring-ring/20 transition-all text-sm"
+          />
+        </div>
+      </form>
 
-        <form onSubmit={handleSubmit} className="flex-1 max-w-xl">
-          <div className="relative">
-            <input
-              ref={inputRef}
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="بحث في الكتب والمؤلفين... (Ctrl+K)"
-              className="w-full px-3 py-1.5 ps-8 bg-[var(--bg-card)] border-2 border-[var(--border)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)] transition-all text-sm"
-              style={{ boxShadow: '2px 2px 0 0 var(--pixel-shadow)' }}
-            />
-            <svg
-              className="absolute end-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
-        </form>
-
-        {stats && (
-          <div className="flex items-center gap-4 text-[10px] font-pixel text-[var(--text-muted)]" style={{ lineHeight: '1.6' }}>
-            <span>{stats.books.toLocaleString('ar')}K</span>
-            <span>{stats.authors.toLocaleString('ar')}A</span>
-          </div>
-        )}
-      </div>
+      <button
+        onClick={toggleTheme}
+        className="p-2 rounded-lg pixel-btn text-muted-foreground hover:text-foreground shrink-0"
+        aria-label={theme === 'dark' ? 'الوضع الفاتح' : 'الوضع الداكن'}
+      >
+        {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+      </button>
     </header>
   );
 }

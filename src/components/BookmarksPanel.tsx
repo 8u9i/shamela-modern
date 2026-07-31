@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ScrollArea } from '@base-ui/react/scroll-area';
+import { Bookmark, X } from 'lucide-react';
 import type { BookmarkEntry, Book } from '../types';
 
 interface BookmarksPanelProps {
@@ -51,7 +52,7 @@ export function BookmarksPanel({ onOpenBook }: BookmarksPanelProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full text-[var(--text-secondary)] text-sm">
+      <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
         جاري التحميل...
       </div>
     );
@@ -59,40 +60,49 @@ export function BookmarksPanel({ onOpenBook }: BookmarksPanelProps) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-3 py-2 border-b border-[var(--border)]">
-        <h2 className="text-sm font-medium text-[var(--text-primary)]">العلامات المرجعية</h2>
+      <div className="px-3 py-2.5 border-b border-border">
+        <h2 className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+          <Bookmark className="w-3.5 h-3.5 text-primary" />
+          العلامات المرجعية
+        </h2>
       </div>
 
       <ScrollArea.Root className="flex-1">
         <ScrollArea.Viewport className="h-full">
           {bookmarks.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-[var(--text-muted)] text-sm px-4 text-center">
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-sm px-4 text-center">
               <div className="mb-2 opacity-50">
-                <svg className="w-8 h-8 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                </svg>
+                <Bookmark className="w-8 h-8 mx-auto" />
               </div>
               <div>لا توجد علامات مرجعية</div>
               <div className="text-xs mt-1">يمكنك إضافة علامة أثناء قراءة كتاب</div>
             </div>
           ) : (
-            <div className="divide-y divide-[var(--border)]/50">
+            <div className="divide-y divide-border/50">
               {bookmarks.map((entry) => (
                 <div
                   key={entry.id}
                   onClick={() => handleOpenBook(entry)}
-                  className="flex items-start gap-2 px-3 py-2.5 cursor-pointer hover:bg-[var(--bg-border)]/50 transition-colors group"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleOpenBook(entry);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  className="flex items-start gap-2 px-3 py-2.5 cursor-pointer hover:bg-muted transition-colors group"
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm text-[var(--text-primary)] truncate leading-tight">
+                    <div className="text-sm text-foreground truncate leading-relaxed">
                       {entry.book_title}
                     </div>
                     {entry.author_name && (
-                      <div className="text-xs text-[var(--text-muted)] truncate mt-0.5">
+                      <div className="text-xs text-muted-foreground truncate mt-0.5">
                         {entry.author_name}
                       </div>
                     )}
-                    <div className="text-[10px] text-[var(--text-muted)] mt-0.5">
+                    <div className="text-[10px] text-muted-foreground mt-0.5 tabular-nums">
                       {new Date(entry.created_at + 'Z').toLocaleDateString('ar-SA', {
                         year: 'numeric',
                         month: 'short',
@@ -102,17 +112,18 @@ export function BookmarksPanel({ onOpenBook }: BookmarksPanelProps) {
                   </div>
                   <button
                     onClick={(e) => handleDelete(entry.id, e)}
-                    className="text-[var(--text-muted)] hover:text-[var(--danger)] opacity-0 group-hover:opacity-100 transition-all text-xs shrink-0 mt-0.5"
+                    aria-label="حذف العلامة المرجعية"
+                    className="text-muted-foreground hover:text-danger opacity-0 group-hover:opacity-100 transition-all text-xs shrink-0 mt-0.5"
                   >
-                    ✕
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
               ))}
             </div>
           )}
         </ScrollArea.Viewport>
-        <ScrollArea.Scrollbar className="flex w-1.5 bg-[var(--bg-surface)] rounded-full">
-          <ScrollArea.Thumb className="flex-1 bg-[var(--text-muted)] rounded-full" />
+        <ScrollArea.Scrollbar className="flex w-1.5 bg-muted rounded-full">
+          <ScrollArea.Thumb className="flex-1 bg-muted-foreground/30 rounded-full" />
         </ScrollArea.Scrollbar>
       </ScrollArea.Root>
     </div>

@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { Package, Download, CheckCircle2, AlertTriangle, RefreshCw, X } from 'lucide-react';
 import type { AppUpdateStatus } from '../types';
 
 export function UpdateNotifier() {
   const [status, setStatus] = useState<AppUpdateStatus | null>(null);
   const [dismissed, setDismissed] = useState(false);
-  const errorTimer = useRef<ReturnType<typeof setTimeout>>();
+  const errorTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     const cleanup = window.api.onAppUpdateStatus((data: AppUpdateStatus) => {
@@ -48,31 +49,34 @@ export function UpdateNotifier() {
 
   return (
     <div
-      className="fixed bottom-4 left-4 z-50 pixel-card bg-[var(--bg-surface)] border border-[var(--accent)] p-3 shadow-xl"
+      className="fixed bottom-4 left-4 z-50 pixel-card bg-card border border-primary/40 p-4 shadow-xl"
       style={{ minWidth: 280, maxWidth: 360 }}
     >
       {status.status === 'checking' && (
-        <div className="flex items-center gap-2">
-          <span className="loading-pulse text-[var(--accent)] text-[10px] font-pixel">◉</span>
-          <span className="text-[var(--text-muted)] text-[10px] font-pixel">جاري التحقق من التحديثات...</span>
+        <div className="flex items-center gap-2.5">
+          <RefreshCw className="w-4 h-4 text-primary animate-spin" />
+          <span className="text-muted-foreground text-xs">جاري التحقق من التحديثات...</span>
         </div>
       )}
 
       {status.status === 'available' && (
         <div>
-          <div className="text-[var(--accent)] text-[11px] font-pixel mb-2">📦 تحديث متوفر</div>
-          <div className="text-[var(--text-primary)] text-[10px] font-pixel mb-3">
+          <div className="flex items-center gap-2 text-primary text-sm font-medium mb-2">
+            <Package className="w-4 h-4" />
+            تحديث متوفر
+          </div>
+          <div className="text-foreground text-xs mb-3">
             الإصدار {status.version} متاح للتحميل
           </div>
           <div className="flex gap-2">
             <button
-              className="pixel-btn flex-1 text-[10px]"
+              className="pixel-btn flex-1 text-xs border border-primary/40 text-primary hover:bg-primary/10"
               onClick={handleDownload}
             >
               تحميل
             </button>
             <button
-              className="pixel-btn text-[10px] px-2"
+              className="pixel-btn text-xs px-2 text-muted-foreground"
               onClick={handleDismiss}
             >
               لاحقاً
@@ -83,14 +87,17 @@ export function UpdateNotifier() {
 
       {status.status === 'downloading' && (
         <div>
-          <div className="text-[var(--accent)] text-[11px] font-pixel mb-2">⬇ جاري التحميل...</div>
-          <div className="w-full h-2 bg-[var(--bg-card)] mb-1" style={{ borderRadius: 0 }}>
+          <div className="flex items-center gap-2 text-primary text-sm font-medium mb-2">
+            <Download className="w-4 h-4" />
+            جاري التحميل...
+          </div>
+          <div className="w-full h-2 bg-muted rounded-full mb-1.5 overflow-hidden">
             <div
-              className="h-full bg-[var(--accent)] transition-all"
+              className="h-full bg-primary rounded-full transition-all"
               style={{ width: `${status.percent || 0}%` }}
             />
           </div>
-          <div className="text-[var(--text-muted)] text-[9px] font-pixel">
+          <div className="text-muted-foreground text-[10px]">
             {status.percent?.toFixed(1) || 0}%
           </div>
         </div>
@@ -98,19 +105,22 @@ export function UpdateNotifier() {
 
       {status.status === 'downloaded' && (
         <div>
-          <div className="text-[var(--accent)] text-[11px] font-pixel mb-2">✅ التحديث جاهز</div>
-          <div className="text-[var(--text-primary)] text-[10px] font-pixel mb-3">
+          <div className="flex items-center gap-2 text-primary text-sm font-medium mb-2">
+            <CheckCircle2 className="w-4 h-4" />
+            التحديث جاهز
+          </div>
+          <div className="text-foreground text-xs mb-3">
             تم تحميل الإصدار {status.version}
           </div>
           <div className="flex gap-2">
             <button
-              className="pixel-btn flex-1 text-[10px] bg-[var(--accent)] text-[var(--bg-page)]"
+              className="pixel-btn flex-1 text-xs bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={handleInstall}
             >
               تثبيت وإعادة التشغيل
             </button>
             <button
-              className="pixel-btn text-[10px] px-2"
+              className="pixel-btn text-xs px-2 text-muted-foreground"
               onClick={handleDismiss}
             >
               لاحقاً
@@ -121,19 +131,22 @@ export function UpdateNotifier() {
 
       {status.status === 'error' && (
         <div>
-          <div className="text-red-400 text-[11px] font-pixel mb-1">⚠ خطأ في التحديث</div>
-          <div className="text-[var(--text-muted)] text-[9px] font-pixel mb-2">
+          <div className="flex items-center gap-2 text-danger text-sm font-medium mb-1">
+            <AlertTriangle className="w-4 h-4" />
+            خطأ في التحديث
+          </div>
+          <div className="text-muted-foreground text-xs mb-2">
             تعذر التحقق من التحديثات
           </div>
           <div className="flex gap-2">
             <button
-              className="pixel-btn flex-1 text-[10px]"
+              className="pixel-btn flex-1 text-xs text-muted-foreground"
               onClick={handleRetry}
             >
               إعادة المحاولة
             </button>
             <button
-              className="pixel-btn text-[10px] px-2"
+              className="pixel-btn text-xs px-2 text-muted-foreground"
               onClick={handleDismiss}
             >
               إخفاء

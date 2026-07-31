@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Search, Users, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Book } from '../types';
 
 interface AuthorEntry {
@@ -15,7 +16,7 @@ interface AuthorsViewProps {
   onOpenBook: (book: Book) => void;
 }
 
-export function AuthorsView({ onOpenAuthor, onOpenBook }: AuthorsViewProps) {
+export function AuthorsView({ onOpenAuthor }: AuthorsViewProps) {
   const [authors, setAuthors] = useState<AuthorEntry[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -55,71 +56,71 @@ export function AuthorsView({ onOpenAuthor, onOpenBook }: AuthorsViewProps) {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Header */}
-      <div className="px-5 py-3 border-b-2 border-[var(--border)] bg-[var(--bg-surface)]">
-        <div className="flex items-center justify-between mb-2">
-          <div className="font-pixel text-[var(--accent)] text-[10px]" style={{ lineHeight: 2 }}>
-            المؤلفون
+      <div className="px-5 py-4 border-b border-border bg-card">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-primary" />
+            <h2 className="font-arabic text-base font-bold text-foreground">المؤلفون</h2>
           </div>
-          <div className="text-[var(--text-muted)] text-[10px] font-pixel">
+          <div className="text-muted-foreground text-xs tabular-nums">
             {total.toLocaleString('ar')} مؤلف
           </div>
         </div>
 
-        {/* Search */}
         <form onSubmit={handleSearch} className="flex gap-2">
-          <input
-            type="text"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="بحث عن مؤلف..."
-            className="flex-1 bg-[var(--bg-card)] border-2 border-[var(--bg-border)] text-[var(--text-primary)] text-sm px-3 py-1.5 outline-none focus:border-[var(--accent)] transition-colors"
-            style={{ borderRadius: 0 }}
-          />
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-muted-foreground absolute top-1/2 -translate-y-1/2 start-3" />
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="بحث عن مؤلف..."
+              className="w-full bg-background border border-border text-foreground text-sm ps-9 pe-3 py-2 rounded-lg outline-none focus:border-ring focus:ring-2 focus:ring-ring/20 transition-all"
+            />
+          </div>
           <button
             type="submit"
-            className="pixel-btn text-xs px-3 py-1.5"
+            className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
           >
             بحث
           </button>
         </form>
       </div>
 
-      {/* List */}
       <div className="flex-1 overflow-y-auto">
         {loading ? (
           <div className="space-y-2 p-4">
             {[...Array(10)].map((_, i) => (
               <div key={i} className="animate-pulse px-4 py-3">
-                <div className="h-4 bg-[var(--bg-border)] w-3/4 mb-2" />
-                <div className="h-3 bg-[var(--bg-border)] w-1/3" />
+                <div className="h-4 bg-border rounded w-3/4 mb-2" />
+                <div className="h-3 bg-border rounded w-1/3" />
               </div>
             ))}
           </div>
         ) : authors.length === 0 ? (
-          <div className="text-center text-[var(--text-muted)] py-16 text-sm font-pixel">
+          <div className="text-center text-muted-foreground py-16 text-sm">
             {search ? 'لا توجد نتائج' : 'لا يوجد مؤلفون'}
           </div>
         ) : (
-          <div className="divide-y-2 divide-[var(--bg-border)]">
+          <div className="divide-y divide-border">
             {authors.map((author) => (
               <button
                 key={author.id}
                 onClick={() => onOpenAuthor(author.id)}
-                className="w-full text-start px-5 py-4 hover:bg-[var(--bg-surface)] transition-colors group"
+                className="w-full text-start px-5 py-4 hover:bg-muted transition-colors group"
               >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-[var(--text-primary)] text-sm font-medium leading-relaxed group-hover:text-[var(--accent)] transition-colors">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-arabic text-foreground text-sm font-medium leading-relaxed group-hover:text-primary transition-colors">
                       {author.name || 'بدون اسم'}
                     </div>
                     {author.death_year && (
-                      <div className="text-[var(--text-muted)] text-[11px] mt-0.5">
+                      <div className="text-muted-foreground text-xs mt-0.5">
                         توفي {author.death_year}
                       </div>
                     )}
                   </div>
-                  <div className="text-[var(--text-muted)] text-[10px] font-pixel whitespace-nowrap mr-3">
+                  <div className="text-muted-foreground text-xs tabular-nums whitespace-nowrap">
                     {author.book_count.toLocaleString('ar')} كتاب
                   </div>
                 </div>
@@ -129,25 +130,26 @@ export function AuthorsView({ onOpenAuthor, onOpenBook }: AuthorsViewProps) {
         )}
       </div>
 
-      {/* Pagination */}
       {totalPages > 1 && (
-        <div className="px-5 py-2 border-t-2 border-[var(--border)] bg-[var(--bg-surface)] flex items-center justify-between">
+        <div className="px-5 py-3 border-t border-border bg-card flex items-center justify-between">
           <button
             onClick={() => setPage(Math.max(0, page - 1))}
             disabled={page === 0}
-            className="pixel-btn text-xs px-3 py-1 disabled:opacity-40"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-background border border-border text-muted-foreground text-xs disabled:opacity-40 hover:text-foreground hover:border-primary/50 transition-all"
           >
+            <ChevronRight className="w-3.5 h-3.5" />
             السابق
           </button>
-          <span className="text-[var(--text-muted)] text-[10px] font-pixel">
-            صفحة {page + 1} من {totalPages}
+          <span className="text-muted-foreground text-xs tabular-nums">
+            صفحة {(page + 1).toLocaleString('ar')} من {totalPages.toLocaleString('ar')}
           </span>
           <button
             onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
             disabled={page >= totalPages - 1}
-            className="pixel-btn text-xs px-3 py-1 disabled:opacity-40"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-background border border-border text-muted-foreground text-xs disabled:opacity-40 hover:text-foreground hover:border-primary/50 transition-all"
           >
             التالي
+            <ChevronLeft className="w-3.5 h-3.5" />
           </button>
         </div>
       )}

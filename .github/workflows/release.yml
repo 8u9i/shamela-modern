@@ -75,9 +75,16 @@ jobs:
 
           | الملف | المنصة |
           |------|--------|
-          | `Al-Maktaba-Al-Shamela-Setup-*.exe` | ويندوز |
+          | `Al-Maktaba-Al-Shamela-Setup-*.exe` | ويندوز (يمكن اختيار مجلد التثبيت) |
           | `Al-Maktaba-Al-Shamela-*-arm64.dmg` | ماك (Apple Silicon) |
-          | `Al-Maktaba-Al-Shamela-*.deb` | لينكس |
+          | `Al-Maktaba-Al-Shamela-*.AppImage` | لينكس (يدعم التحديث التلقائي) |
+          | `Al-Maktaba-Al-Shamela-*.deb` | لينكس (Ubuntu/Debian) |
+
+          ### 🔄 التحديث التلقائي
+
+          - **ويندوز**: مثبت NSIS يسمح باختيار مجلد التثبيت، والتحديث التلقائي يعمل معه.
+          - **لينكس**: حزمة AppImage تدعم التحديث التلقائي عبر GitHub Releases.
+          - **ماك**: يتطلب التوقيع (code signing) ليعمل التحديث التلقائي.
 
           راجع [CHANGELOG.md](https://github.com/8u9i/shamela-modern/blob/master/CHANGELOG.md) للتفاصيل الكاملة.
           EOF

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { ArrowRight, Download, FileText, Loader2, AlertTriangle } from 'lucide-react';
 
 interface PdfViewerProps {
   relativePath: string;
@@ -18,7 +19,6 @@ export function PdfViewer({ relativePath, bookTitle, onBack }: PdfViewerProps) {
     try {
       const fullPath = await window.api.getPdfPath(relativePath);
       if (fullPath) {
-        // Normalize Windows path to a proper URL with forward slashes
         const parts = fullPath.split(/[\\/]/);
         const encoded = parts.map((s, i) => i === 0 ? s : encodeURIComponent(s)).join('/');
         setPdfUrl(`shamela-pdf:///${encoded}`);
@@ -32,17 +32,16 @@ export function PdfViewer({ relativePath, bookTitle, onBack }: PdfViewerProps) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-4 py-2 bg-[var(--bg-surface)] border-b border-[var(--border)] flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="px-4 py-2 bg-card border-b border-border flex items-center justify-between gap-2 shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={onBack}
-            className="p-1 rounded hover:bg-[var(--bg-border)] transition-colors text-[var(--text-secondary)]"
+            className="p-1.5 rounded-lg hover:bg-muted transition-colors text-secondary-foreground"
           >
-            <svg className="w-4 h-4 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
+            <ArrowRight className="w-4 h-4 rtl:rotate-180" />
           </button>
-          <h1 className="font-arabic text-sm text-[var(--text-primary)] font-medium leading-relaxed line-clamp-1">
+          <FileText className="w-4 h-4 text-primary shrink-0" />
+          <h1 className="font-arabic text-sm text-foreground font-medium leading-relaxed line-clamp-1">
             {bookTitle}
           </h1>
         </div>
@@ -50,20 +49,22 @@ export function PdfViewer({ relativePath, bookTitle, onBack }: PdfViewerProps) {
           <a
             href={pdfUrl}
             download
-            className="px-2 py-1 rounded text-xs bg-[var(--bg-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-secondary-foreground text-xs hover:text-primary transition-colors"
           >
+            <Download className="w-3.5 h-3.5" />
             تحميل
           </a>
         )}
       </div>
 
-      <div className="flex-1 bg-[#0f172a]">
+      <div className="flex-1 bg-background">
         {error ? (
-          <div className="flex flex-col items-center justify-center h-full text-[var(--text-secondary)]">
+          <div className="flex flex-col items-center justify-center h-full text-secondary-foreground">
+            <AlertTriangle className="w-8 h-8 text-warning mb-3" />
             <p className="mb-4">تعذر فتح ملف PDF</p>
             <button
               onClick={onBack}
-              className="px-6 py-2.5 bg-[var(--accent)] text-[var(--text-primary)] rounded-xl font-medium hover:bg-[var(--accent-hover)] transition-all"
+              className="px-6 py-2.5 bg-primary text-primary-foreground rounded-xl font-medium hover:opacity-90 transition-all"
             >
               العودة
             </button>
@@ -75,7 +76,8 @@ export function PdfViewer({ relativePath, bookTitle, onBack }: PdfViewerProps) {
             title={bookTitle}
           />
         ) : (
-          <div className="flex items-center justify-center h-full text-[var(--text-muted)] text-sm">
+          <div className="flex items-center justify-center h-full text-muted-foreground text-sm gap-2">
+            <Loader2 className="w-4 h-4 animate-spin" />
             جاري التحميل...
           </div>
         )}

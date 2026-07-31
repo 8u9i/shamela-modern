@@ -1,72 +1,240 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-:root {
-  --bg-page: #07130e;
-  --bg-card: #0c1d16;
-  --bg-card-alt: #11261e;
-  --bg-surface: #162e24;
-  --bg-border: #1d3a2d;
-  --text-primary: #e2e8f0;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --accent: #E99E39;
-  --accent-hover: #d48a2e;
-  --accent-dim: rgba(233, 158, 57, 0.15);
-  --accent-dim-hover: rgba(233, 158, 57, 0.25);
-  --border: #2a4a3a;
+/* ============================================================
+   Shamela Modern — token architecture (CommandCode-style)
+   HSL triplets scoped per [data-theme]; dark is the default.
+   ============================================================ */
+
+@theme inline {
+  --font-sans: var(--font-ui);
+  --font-arabic: var(--font-arabic);
+  --font-mono: var(--font-mono);
+
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-success: hsl(var(--success));
+  --color-info: hsl(var(--info));
+  --color-warning: hsl(var(--warning));
+  --color-danger: hsl(var(--danger));
+  --color-teal: hsl(var(--teal));
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* ---------------- Dark theme (default) ---------------- */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+  --font-ui: 'Geist', 'IBM Plex Sans Arabic', 'Segoe UI', 'Tahoma', sans-serif;
   --font-arabic: 'IBM Plex Sans Arabic', 'Segoe UI', 'Tahoma', sans-serif;
-  --font-pixel: 'Press Start 2P', monospace;
-  --pixel-shadow: #030a07;
-  --teal: #51CDBC;
-  --teal-hover: #40bca8;
-  --teal-muted: #309088;
-  --danger: #ef4444;
-  --success: #22c55e;
+  --font-mono: 'Geist Mono', 'IBM Plex Sans Arabic', 'Segoe UI', monospace;
+
+  --background: 152 43% 5%;
+  --foreground: 40 20% 96%;
+  --card: 152 32% 8%;
+  --card-foreground: 40 20% 96%;
+  --popover: 152 30% 9%;
+  --popover-foreground: 40 20% 96%;
+  --primary: 35 88% 56%;
+  --primary-foreground: 152 43% 5%;
+  --secondary: 152 28% 13%;
+  --secondary-foreground: 40 15% 88%;
+  --muted: 152 25% 13%;
+  --muted-foreground: 40 8% 58%;
+  --accent: 170 60% 50%;
+  --accent-foreground: 152 43% 5%;
+  --destructive: 0 70% 52%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 152 25% 17%;
+  --input: 152 25% 17%;
+  --ring: 35 88% 56%;
+  --success: 142 65% 46%;
+  --info: 199 89% 48%;
+  --warning: 38 92% 52%;
+  --danger: 0 70% 52%;
+  --teal: 170 60% 50%;
+  --selection: 35 88% 56%;
+  --radius: 12px;
+
+  /* Legacy aliases — keep existing components working */
+  --bg-page: hsl(var(--background));
+  --bg-card: hsl(var(--card));
+  --bg-card-alt: hsl(var(--muted));
+  --bg-surface: hsl(var(--popover));
+  --bg-border: hsl(var(--border));
+  --text-primary: hsl(var(--foreground));
+  --text-secondary: hsl(var(--secondary-foreground));
+  --text-muted: hsl(var(--muted-foreground));
+  --accent-color: hsl(var(--primary));
+  --accent-hover: hsl(var(--primary) / 0.85);
+  --accent-dim: hsl(var(--primary) / 0.15);
+  --accent-dim-hover: hsl(var(--primary) / 0.25);
+  --border-color: hsl(var(--border));
+  --font-pixel: var(--font-ui);
+  --pixel-shadow: hsl(var(--background));
+  --teal-color: hsl(var(--teal));
+  --teal-hover: hsl(var(--teal) / 0.85);
+  --teal-muted: hsl(var(--teal) / 0.6);
+  --danger-color: hsl(var(--danger));
+  --success-color: hsl(var(--success));
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+/* ---------------- Light theme ---------------- */
+[data-theme="light"] {
+  color-scheme: light;
+  --background: 42 35% 97%;
+  --foreground: 152 35% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 152 35% 12%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 152 35% 12%;
+  --primary: 35 75% 34%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 42 25% 92%;
+  --secondary-foreground: 152 25% 22%;
+  --muted: 42 20% 91%;
+  --muted-foreground: 152 15% 42%;
+  --accent: 170 45% 32%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 68% 46%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 42 18% 86%;
+  --input: 42 18% 84%;
+  --ring: 35 75% 34%;
+  --success: 142 60% 38%;
+  --info: 199 80% 42%;
+  --warning: 38 92% 46%;
+  --danger: 0 68% 46%;
+  --teal: 170 45% 32%;
+  --selection: 35 75% 50%;
+  --radius: 12px;
+
+  --bg-page: hsl(var(--background));
+  --bg-card: hsl(var(--card));
+  --bg-card-alt: hsl(var(--muted));
+  --bg-surface: hsl(var(--popover));
+  --bg-border: hsl(var(--border));
+  --text-primary: hsl(var(--foreground));
+  --text-secondary: hsl(var(--secondary-foreground));
+  --text-muted: hsl(var(--muted-foreground));
+  --accent-color: hsl(var(--primary));
+  --accent-hover: hsl(var(--primary) / 0.88);
+  --accent-dim: hsl(var(--primary) / 0.14);
+  --accent-dim-hover: hsl(var(--primary) / 0.22);
+  --border-color: hsl(var(--border));
+  --font-pixel: var(--font-ui);
+  --pixel-shadow: hsl(var(--border) / 0.4);
+  --teal-color: hsl(var(--teal));
+  --teal-hover: hsl(var(--teal) / 0.88);
+  --teal-muted: hsl(var(--teal) / 0.6);
+  --danger-color: hsl(var(--danger));
+  --success-color: hsl(var(--success));
 }
 
+/* ---------------- Base ---------------- */
 html, body, #root {
   height: 100%;
   overflow: hidden;
 }
 
 body {
-  font-family: var(--font-arabic);
+  font-family: var(--font-ui);
   background-color: var(--bg-page);
+  background-image:
+    radial-gradient(ellipse 90% 45% at 50% -5%, hsl(var(--primary) / 0.07), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 0% 100%, hsl(var(--teal) / 0.05), transparent 55%);
+  background-attachment: fixed;
   color: var(--text-primary);
   direction: rtl;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: 'liga' 1, 'calt' 1;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* Retro pixel scrollbar */
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  background: hsl(var(--selection) / 0.45);
+  color: hsl(var(--foreground));
+}
+
+:focus-visible {
+  outline: 2px solid hsl(var(--ring) / 0.65);
+  outline-offset: 2px;
+}
+
+/* Modern thin scrollbar */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--bg-card-alt);
-  border-left: 2px solid var(--border);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--accent);
-  border: 2px solid var(--pixel-shadow);
-  box-shadow: inset 0 0 0 1px var(--accent-hover);
+  background: hsl(var(--muted-foreground) / 0.35);
+  border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--accent-hover);
+  background: hsl(var(--muted-foreground) / 0.55);
+}
+
+/* ---------------- Fonts ---------------- */
+@font-face {
+  font-family: 'Geist';
+  src: url('/fonts/Geist-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('/fonts/GeistMono-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+.font-arabic {
+  font-family: var(--font-arabic);
+}
+
+.font-pixel {
+  font-family: var(--font-ui);
+  letter-spacing: 0.01em;
+}
+
+.arabic-heading {
+  font-family: var(--font-arabic);
+  font-weight: 600;
+  line-height: 1.6;
 }
 
 /* Arabic book text */
@@ -77,6 +245,7 @@ body {
   text-align: start;
   direction: rtl;
   color: var(--text-primary);
+  overflow-wrap: break-word;
 }
 
 /* Reading themes */
@@ -114,83 +283,102 @@ body {
 .arabic-text.reader-green { background: var(--reader-bg); color: var(--reader-text); }
 
 .reader-area {
-  background-image: url('/reader-bg.jpg');
-  background-size: cover;
-  background-position: center;
-  background-attachment: fixed;
+  background-color: var(--bg-card);
 }
 
-.font-arabic {
-  font-family: var(--font-arabic);
-}
-
-.font-pixel {
-  font-family: var(--font-pixel);
-}
-
-.arabic-heading {
-  font-family: var(--font-arabic);
-  font-weight: 600;
-  line-height: 1.6;
-}
-
-/* Retro pixel card */
+/* ---------------- Cards & buttons (modern) ---------------- */
 .pixel-card {
-  border: 2px solid var(--border);
-  box-shadow: 4px 4px 0 0 var(--pixel-shadow);
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 10px 30px -14px rgb(0 0 0 / 0.5);
 }
 
 .pixel-card-sm {
-  border: 1.5px solid var(--border);
-  box-shadow: 2px 2px 0 0 var(--pixel-shadow);
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-card);
+  border-radius: var(--radius-md);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
 }
 
 .pixel-card-gold {
-  border: 2px solid var(--accent);
-  box-shadow: 3px 3px 0 0 var(--pixel-shadow);
+  border: 1px solid var(--accent-color);
+  background-color: var(--bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
 }
 
 .pixel-btn {
-  border: 1.5px solid var(--border);
-  box-shadow: 2px 2px 0 0 var(--pixel-shadow);
-  transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.15s ease, color 0.15s ease;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
   color: var(--text-primary);
-  will-change: transform, box-shadow;
+  background-color: transparent;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .pixel-btn:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 3px 3px 0 0 var(--pixel-shadow);
+  background-color: hsl(var(--foreground) / 0.06);
 }
 
 .pixel-btn:active {
-  transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0 0 var(--pixel-shadow);
+  background-color: hsl(var(--foreground) / 0.1);
 }
 
 .pixel-btn-gold {
-  border: 1.5px solid var(--accent);
-  box-shadow: 2px 2px 0 0 var(--pixel-shadow);
-  transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.15s ease, color 0.15s ease;
-  color: var(--text-primary);
-  will-change: transform, box-shadow;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  color: var(--primary-foreground);
+  background-color: var(--accent-color);
+  transition: background-color 0.15s ease, opacity 0.15s ease, transform 0.1s ease;
 }
 
 .pixel-btn-gold:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 3px 3px 0 0 var(--pixel-shadow);
+  background-color: var(--accent-hover);
 }
 
 .pixel-btn-gold:active {
-  transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0 0 var(--pixel-shadow);
+  transform: scale(0.98);
 }
 
+/* Book card hover */
+.book-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+}
 
+.book-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px -8px rgb(0 0 0 / 0.45);
+}
 
+/* Mini stats display */
+.stat-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-value {
+  font-family: var(--font-ui);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--accent-color);
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-label {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+/* ---------------- Misc ---------------- */
 /* Search highlight */
 .search-highlight {
   background-color: var(--accent-dim);
+  color: var(--text-primary);
   padding: 1px 4px;
   border-radius: 3px;
 }
@@ -224,35 +412,18 @@ body {
   animation: fadeIn 0.3s ease-out;
 }
 
-/* Book card hover */
-.book-card {
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-  border: 1.5px solid var(--border);
-  box-shadow: 3px 3px 0 0 var(--pixel-shadow);
+/* Dialog open animation */
+@keyframes popIn {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.96); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
 
-.book-card:hover {
-  transform: translate(-2px, -2px);
-  box-shadow: 5px 5px 0 0 var(--pixel-shadow);
+.dialog-backdrop {
+  animation: fadeIn 0.18s ease-out;
 }
 
-/* Mini stats display */
-.stat-block {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.stat-value {
-  font-family: var(--font-pixel);
-  font-size: 0.75rem;
-  color: var(--accent);
-  line-height: 1.4;
-}
-
-.stat-label {
-  font-size: 0.625rem;
-  color: var(--text-muted);
+.dialog-popup {
+  animation: popIn 0.2s cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 
 /* Splitter */
@@ -262,7 +433,7 @@ body {
 }
 
 .splitter:hover {
-  background-color: var(--accent);
+  background-color: var(--accent-color);
 }
 
 /* Bidi isolation for mixed content */

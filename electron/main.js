@@ -121,7 +121,7 @@ function createWindow() {
       nodeIntegration: false,
     },
     title: 'المكتبة الشاملة',
-    backgroundColor: '#0f172a',
+    backgroundColor: '#07130e',
     titleBarStyle: 'hiddenInset',
     frame: process.platform === 'darwin' ? false : true,
   });
@@ -419,6 +419,10 @@ ipcMain.handle('app:getAppVersion', () => {
   return autoUpdater.getCurrentVersion().version;
 });
 
+ipcMain.handle('app:getInstallDirectory', () => {
+  return autoUpdater.getInstallDirectory();
+});
+
 // ============ User Data IPC Handlers ============
 
 ipcMain.handle('db:addHistory', (event, { bookId, bookTitle, authorName, page = 0 }) => {
@@ -586,6 +590,15 @@ ipcMain.handle('exportText', async (event, { content, defaultName = 'export.txt'
   });
   if (result.canceled || !result.filePath) return false;
   fs.writeFileSync(result.filePath, content, 'utf-8');
+  return true;
+});
+
+ipcMain.handle('print:window', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return false;
+  win.webContents.print({ printBackground: true }, (success, failureReason) => {
+    if (!success) console.error('Print failed:', failureReason);
+  });
   return true;
 });
 

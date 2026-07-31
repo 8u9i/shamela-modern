@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, memo } from 'react';
+import { ChevronRight, BookOpen, Wrench, FolderTree, History, Bookmark, StickyNote } from 'lucide-react';
 import { Category, DbStats, Book } from '../types';
 import { HistoryPanel } from './HistoryPanel';
 import { BookmarksPanel } from './BookmarksPanel';
@@ -57,11 +58,11 @@ const TreeNodeItem = memo(function TreeNodeItem({
       <button
         key={node.id}
         onClick={() => onSelectCategory(node.id)}
-        className={`w-full text-start flex items-center gap-1 pixel-btn ${
+        className={`w-full text-start flex items-center gap-1.5 rounded-lg pixel-btn ${
           isSelected
-            ? 'bg-[var(--accent-dim)] text-[var(--accent)] font-medium'
-            : 'text-[var(--text-secondary)]'
-        } py-1 text-xs`}
+            ? 'bg-primary/15 text-primary font-medium'
+            : 'text-muted-foreground'
+        } py-1.5 text-xs transition-colors`}
         style={{ paddingInlineEnd: '0.75rem', paddingInlineStart: `${0.75 + depth * 0.5}rem` }}
       >
         <span className="w-3 shrink-0" />
@@ -81,20 +82,22 @@ const TreeNodeItem = memo(function TreeNodeItem({
           if (!isProgramRoot) onSelectCategory(node.id);
           onToggle(node.id);
         }}
-        className={`w-full text-start flex items-center gap-1 pixel-btn ${
+        className={`w-full text-start flex items-center gap-1.5 rounded-lg pixel-btn ${
           isSelected
-            ? 'bg-[var(--accent-dim)] text-[var(--accent)] font-medium'
-            : depth === 0 ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'
-        } ${depth === 0 ? 'px-3 py-1.5 text-xs' : 'py-1 text-xs'}`}
+            ? 'bg-primary/15 text-primary font-medium'
+            : depth === 0 ? 'text-foreground' : 'text-muted-foreground'
+        } ${depth === 0 ? 'px-2.5 py-1.5 text-xs font-medium' : 'py-1.5 text-xs'}`}
         style={depth > 0 ? { paddingInlineEnd: '0.75rem', paddingInlineStart: `${0.75 + depth * 0.5}rem` } : undefined}
       >
-        <span className={`text-[10px] shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
-          ▶
-        </span>
-        <span className={`truncate ${depth === 0 ? 'font-medium' : ''}`}>{node.name}</span>
+        <ChevronRight
+          className={`w-3.5 h-3.5 shrink-0 text-muted-foreground/70 transition-transform duration-200 ${
+            isExpanded ? 'rotate-90' : ''
+          }`}
+        />
+        <span className="truncate">{node.name}</span>
       </button>
       {isExpanded && node.children.length > 0 && (
-        <div className={depth === 0 ? '' : 'bg-[var(--bg-card)]'}>
+        <div className={depth === 0 ? '' : 'bg-card rounded-lg'}>
           {node.children.map(child => (
             <TreeNodeItem
               key={child.id}
@@ -164,33 +167,37 @@ export const Sidebar = memo(function Sidebar({
     onSelectCategory(id);
   }, [onSelectCategory]);
 
-  const tabs: { key: SidebarTab; label: string }[] = [
-    { key: 'categories', label: 'التصنيفات' },
-    { key: 'history', label: 'السجل' },
-    { key: 'bookmarks', label: 'العلامات' },
-    { key: 'notes', label: 'ملاحظات' },
+  const tabs: { key: SidebarTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+    { key: 'categories', label: 'التصنيفات', icon: FolderTree },
+    { key: 'history', label: 'السجل', icon: History },
+    { key: 'bookmarks', label: 'العلامات', icon: Bookmark },
+    { key: 'notes', label: 'ملاحظات', icon: StickyNote },
   ];
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex border-b-2 border-[var(--border)] shrink-0">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`flex-1 py-2 text-[10px] font-pixel transition-colors ${
-              activeTab === tab.key
-                ? 'text-[var(--accent)] border-b-2 border-[var(--accent)]'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
-            }`}
-            style={{ lineHeight: '1.8' }}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="flex border-b border-border shrink-0 px-1 pt-1 gap-1">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-medium rounded-t-lg transition-colors border-b-2 ${
+                isActive
+                  ? 'text-primary border-primary'
+                  : 'text-muted-foreground border-transparent hover:text-secondary-foreground'
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="flex-1 min-h-0 flex flex-col">
         {activeTab === 'history' ? (
           <HistoryPanel onOpenBook={onOpenBook} />
         ) : activeTab === 'bookmarks' ? (
@@ -198,55 +205,57 @@ export const Sidebar = memo(function Sidebar({
         ) : activeTab === 'notes' ? (
           <NotesPanel onOpenBook={onOpenBook} />
         ) : (
-          <div className="flex flex-col">
-            {stats && (
-              <div className="px-3 py-2 border-b-2 border-[var(--border)] bg-[var(--bg-card-alt)] shrink-0">
-                <div className="flex justify-around text-center">
-                  <div className="stat-block">
-                    <div className="stat-value">{stats.books.toLocaleString('ar')}</div>
-                    <div className="stat-label">كتاب</div>
-                  </div>
-                  <div className="stat-block">
-                    <div className="stat-value">{stats.authors.toLocaleString('ar')}</div>
-                    <div className="stat-label">مؤلف</div>
-                  </div>
-                  <div className="stat-block">
-                    <div className="stat-value">{stats.withContent.toLocaleString('ar')}</div>
-                    <div className="stat-label">نص</div>
+          <div className="flex-1 min-h-0 overflow-y-auto p-2">
+            <div className="flex flex-col gap-1">
+              {stats && (
+                <div className="px-3 py-2.5 border border-border rounded-xl bg-card shrink-0 mb-1">
+                  <div className="flex justify-around text-center">
+                    <div className="stat-block">
+                      <div className="stat-value">{stats.books.toLocaleString('ar')}</div>
+                      <div className="stat-label">كتاب</div>
+                    </div>
+                    <div className="stat-block">
+                      <div className="stat-value">{stats.authors.toLocaleString('ar')}</div>
+                      <div className="stat-label">مؤلف</div>
+                    </div>
+                    <div className="stat-block">
+                      <div className="stat-value">{stats.withContent.toLocaleString('ar')}</div>
+                      <div className="stat-label">نص</div>
+                    </div>
                   </div>
                 </div>
+              )}
+
+              <button
+                onClick={() => onSelectCategory(null)}
+                className={`w-full text-start px-3 py-2 text-xs rounded-lg pixel-btn flex items-center gap-2 ${
+                  selectedCategoryId === null
+                    ? 'bg-primary/15 text-primary font-medium'
+                    : 'text-muted-foreground'
+                }`}
+              >
+                <BookOpen className="w-4 h-4 shrink-0" />
+                <span>جميع الكتب</span>
+              </button>
+
+              <button
+                onClick={onOpenServices}
+                className="w-full text-start px-3 py-2 text-xs rounded-lg pixel-btn flex items-center gap-2 text-muted-foreground"
+              >
+                <Wrench className="w-4 h-4 shrink-0" />
+                <span>خدمات</span>
+              </button>
+
+              <div className="mt-1">
+                <TreeNodeItem
+                  node={programTree}
+                  depth={0}
+                  selectedCategoryId={selectedCategoryId}
+                  expanded={expanded}
+                  onSelectCategory={handleSelectCategory}
+                  onToggle={toggle}
+                />
               </div>
-            )}
-
-            <button
-              onClick={() => onSelectCategory(null)}
-              className={`w-full text-start px-3 py-2 text-xs pixel-btn border-b-2 border-[var(--border)] shrink-0 ${
-                selectedCategoryId === null
-                  ? 'bg-[var(--accent-dim)] text-[var(--accent)] font-medium'
-                  : 'text-[var(--text-secondary)]'
-              }`}
-            >
-              <span className="ms-1">📚</span>
-              <span>جميع الكتب</span>
-            </button>
-
-            <button
-              onClick={onOpenServices}
-              className="w-full text-start px-3 py-2 text-xs pixel-btn border-b-2 border-[var(--border)] shrink-0 text-[var(--text-secondary)]"
-            >
-              <span className="ms-1">🛠️</span>
-              <span>خدمات</span>
-            </button>
-
-            <div className="border-b-2 border-[var(--border)]">
-              <TreeNodeItem
-                node={programTree}
-                depth={0}
-                selectedCategoryId={selectedCategoryId}
-                expanded={expanded}
-                onSelectCategory={handleSelectCategory}
-                onToggle={toggle}
-              />
             </div>
           </div>
         )}

@@ -13,25 +13,25 @@ export function StatusBar({ stats, currentBook, view }: StatusBarProps) {
 
   return (
     <>
-      <footer className="flex items-center justify-between px-4 py-1 bg-[var(--bg-surface)] border-t-2 border-[var(--border)] text-[10px] text-[var(--text-muted)] font-pixel" style={{ lineHeight: '1.8' }}>
+      <footer className="flex items-center justify-between px-4 py-1.5 bg-card border-t border-border text-[11px] text-muted-foreground shrink-0">
         <div className="flex items-center gap-4">
           {stats && (
             <>
-              <span>الكتب: {stats.books.toLocaleString('ar')}</span>
-              <span>المؤلفون: {stats.authors.toLocaleString('ar')}</span>
-              <span>بالنص: {stats.withContent.toLocaleString('ar')}</span>
+              <span>الكتب: <bdi className="text-secondary-foreground font-medium">{stats.books.toLocaleString('ar')}</bdi></span>
+              <span>المؤلفون: <bdi className="text-secondary-foreground font-medium">{stats.authors.toLocaleString('ar')}</bdi></span>
+              <span>بالنص: <bdi className="text-secondary-foreground font-medium">{stats.withContent.toLocaleString('ar')}</bdi></span>
             </>
           )}
         </div>
         <div className="flex items-center gap-4">
           {currentBook && (
-            <span className="text-[var(--accent)] truncate max-w-[300px]">
+            <span className="text-primary truncate max-w-[300px]">
               {currentBook.title}
             </span>
           )}
           <button
             onClick={() => setAboutOpen(true)}
-            className="hover:text-[var(--accent)] transition-colors"
+            className="hover:text-primary transition-colors"
           >
             Shamela Modern v1.0
           </button>

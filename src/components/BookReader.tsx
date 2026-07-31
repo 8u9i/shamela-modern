@@ -1,4 +1,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import {
+  ArrowRight, BookOpen, X, Search, Bookmark, Info, FileText, Printer, Download,
+  ChevronUp, ChevronDown, Minus, Plus, StickyNote
+} from 'lucide-react';
 import { Book } from '../types';
 
 interface BookReaderProps {
@@ -37,7 +41,7 @@ export function BookReader({ book, onBack, onOpenAuthor, onOpenPdf }: BookReader
   const [currentPage, setCurrentPage] = useState(1);
   const [totalBookPages, setTotalBookPages] = useState(0);
   const [fontSize, setFontSize] = useState(1.35);
-  const [showToc, setShowToc] = useState(true);
+  const [sidePanel, setSidePanel] = useState<'toc' | 'info' | null>('toc');
   const contentRef = useRef<HTMLDivElement>(null);
   const matchRefs = useRef<(HTMLElement | null)[]>([]);
 
@@ -57,9 +61,7 @@ export function BookReader({ book, onBack, onOpenAuthor, onOpenPdf }: BookReader
   const [bookSearchLoading, setBookSearchLoading] = useState(false);
   const bookSearchRef = useRef<HTMLInputElement>(null);
 
-  const [showInfo, setShowInfo] = useState(false);
   const [readerTheme, setReaderTheme] = useState(() => localStorage.getItem('readerTheme') || 'sepia');
-
   const themes: { key: string; label: string }[] = [
     { key: 'dark', label: 'داكن' },
     { key: 'light', label: 'فاتح' },
@@ -301,15 +303,15 @@ export function BookReader({ book, onBack, onOpenAuthor, onOpenPdf }: BookReader
 
   return (
     <div className="flex h-full">
-      {showToc && toc.length > 0 && (
-        <div className="w-64 bg-[var(--bg-surface)] border-e border-[var(--border)] flex flex-col overflow-hidden">
-          <div className="px-3 py-2 border-b border-[var(--border)] bg-[var(--bg-card)] flex items-center justify-between">
-            <h3 className="text-[var(--text-secondary)] text-xs font-medium">فهرس الكتاب</h3>
+      {sidePanel === 'toc' && toc.length > 0 && (
+        <div className="w-64 bg-card border-e border-border flex flex-col overflow-hidden shrink-0">
+          <div className="px-3 py-2.5 border-b border-border bg-muted flex items-center justify-between">
+            <h3 className="text-secondary-foreground text-xs font-medium">فهرس الكتاب</h3>
             <button
-              onClick={() => setShowToc(false)}
-              className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-xs"
+              onClick={() => setSidePanel(null)}
+              className="text-muted-foreground hover:text-foreground"
             >
-              ✕
+              <X className="w-4 h-4" />
             </button>
           </div>
           <div className="flex-1 overflow-y-auto">
@@ -317,12 +319,12 @@ export function BookReader({ book, onBack, onOpenAuthor, onOpenPdf }: BookReader
               <button
                 key={item.id}
                 onClick={() => loadPageByNumber(item.page || 1)}
-                className={`w-full text-start px-3 py-1.5 text-sm transition-colors hover:bg-[var(--bg-border)] ${
+                className={`w-full text-start px-3 py-1.5 text-sm transition-colors hover:bg-muted ${
                   item.level === 1
-                    ? 'text-[var(--text-primary)] font-medium'
+                    ? 'text-foreground font-medium'
                     : item.level === 2
-                    ? 'text-[var(--text-secondary)] ps-6'
-                    : 'text-[var(--text-muted)] text-xs ps-10'
+                    ? 'text-secondary-foreground ps-6'
+                    : 'text-muted-foreground text-xs ps-10'
                 }`}
               >
                 {item.title}
@@ -332,25 +334,83 @@ export function BookReader({ book, onBack, onOpenAuthor, onOpenPdf }: BookReader
         </div>
       )}
 
-      <div className="flex-1 flex flex-col">
-        <div className="px-4 py-1.5 bg-[var(--bg-surface)] border-b-2 border-[var(--border)] flex items-center justify-between">
-          <div className="flex items-center gap-3 min-w-0">
+      {sidePanel === 'info' && (
+        <div className="w-64 bg-card border-e border-border flex flex-col overflow-hidden shrink-0">
+          <div className="px-3 py-2.5 border-b border-border bg-muted flex items-center justify-between">
+            <h3 className="text-secondary-foreground text-xs font-medium">معلومات الكتاب</h3>
+            <button
+              onClick={() => setSidePanel(null)}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-3 space-y-3">
+            <div>
+              <div className="text-muted-foreground text-[10px] mb-0.5">العنوان</div>
+              <div className="text-foreground text-sm leading-relaxed">{book.title}</div>
+            </div>
+            {book.author_name && (
+              <div>
+                <div className="text-muted-foreground text-[10px] mb-0.5">المؤلف</div>
+                <button
+                  onClick={() => book.author_id && onOpenAuthor(book.author_id)}
+                  className="text-primary text-sm hover:text-primary/80 transition-colors text-start"
+                >
+                  {book.author_name}
+                </button>
+              </div>
+            )}
+            {book.category_name && (
+              <div>
+                <div className="text-muted-foreground text-[10px] mb-0.5">التصنيف</div>
+                <div className="text-secondary-foreground text-sm">{book.category_name}</div>
+              </div>
+            )}
+            {book.description && (
+              <div>
+                <div className="text-muted-foreground text-[10px] mb-0.5">الوصف</div>
+                <div className="text-secondary-foreground text-xs leading-relaxed whitespace-pre-line">{book.description}</div>
+              </div>
+            )}
+            {book.pdf_path && (
+              <div>
+                <div className="text-muted-foreground text-[10px] mb-0.5">ملف PDF</div>
+                <button
+                  onClick={() => onOpenPdf?.(book)}
+                  className="text-primary text-xs hover:text-primary/80 transition-colors"
+                >
+                  عرض PDF
+                </button>
+              </div>
+            )}
+            <div>
+              <div className="text-muted-foreground text-[10px] mb-0.5">محتوى</div>
+              <div className="text-secondary-foreground text-xs">
+                {totalBookPages.toLocaleString('ar')} صفحة
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex-1 flex flex-col min-w-0">
+        <div className="px-3 py-2 bg-card border-b border-border flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2 min-w-0">
             <button
               onClick={onBack}
-              className="p-1 pixel-btn text-[var(--text-secondary)] shrink-0"
+              className="p-1.5 rounded-lg hover:bg-muted text-secondary-foreground shrink-0"
             >
-              <svg className="w-4 h-4 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
+              <ArrowRight className="w-4 h-4 rtl:rotate-180" />
             </button>
             <div className="min-w-0">
-              <h1 className="font-arabic text-sm text-[var(--text-primary)] font-medium leading-relaxed truncate">
+              <h1 className="font-arabic text-sm text-foreground font-medium leading-relaxed truncate">
                 {book.title}
               </h1>
               {book.author_name && (
                 <button
                   onClick={() => book.author_id && onOpenAuthor(book.author_id)}
-                  className="text-[var(--text-muted)] text-[11px] hover:text-[var(--accent)] transition-colors"
+                  className="text-muted-foreground text-[11px] hover:text-primary transition-colors"
                 >
                   {book.author_name}
                 </button>
@@ -358,29 +418,35 @@ export function BookReader({ book, onBack, onOpenAuthor, onOpenPdf }: BookReader
             </div>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-wrap">
             {toc.length > 0 && (
               <button
-                onClick={() => setShowToc(!showToc)}
-                className={`px-2.5 py-1.5 text-xs pixel-btn ${
-                   showToc ? 'bg-[var(--accent)] text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)]'
+                onClick={() => setSidePanel(sidePanel === 'toc' ? null : 'toc')}
+                className={`flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-lg border transition-all ${
+                  sidePanel === 'toc'
+                    ? 'bg-primary/10 border-primary/40 text-primary font-medium'
+                    : 'border-border text-secondary-foreground hover:border-primary/40 hover:text-foreground'
                 }`}
               >
+                <BookOpen className="w-3.5 h-3.5" />
                 فهرس
               </button>
             )}
 
-            <div className="w-px h-5 bg-[var(--bg-border)] mx-1" />
+            <div className="w-px h-5 bg-border mx-1" />
 
             <button
               onClick={() => {
                 setSearchOpen(true);
                 setTimeout(() => searchInputRef.current?.focus(), 50);
               }}
-              className={`px-2.5 py-1.5 text-xs pixel-btn ${
-                 searchOpen ? 'bg-[var(--accent)] text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)]'
+              className={`flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-lg border transition-all ${
+                searchOpen
+                  ? 'bg-primary/10 border-primary/40 text-primary font-medium'
+                  : 'border-border text-secondary-foreground hover:border-primary/40 hover:text-foreground'
               }`}
             >
+              <Search className="w-3.5 h-3.5" />
               بحث في الصفحة
             </button>
 
@@ -394,46 +460,54 @@ export function BookReader({ book, onBack, onOpenAuthor, onOpenPdf }: BookReader
                   setBookSearchResults([]);
                 }
               }}
-              className={`px-2.5 py-1.5 text-xs pixel-btn ${
-                 bookSearchOpen ? 'bg-[var(--accent)] text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)]'
+              className={`flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-lg border transition-all ${
+                bookSearchOpen
+                  ? 'bg-primary/10 border-primary/40 text-primary font-medium'
+                  : 'border-border text-secondary-foreground hover:border-primary/40 hover:text-foreground'
               }`}
             >
+              <Search className="w-3.5 h-3.5" />
               بحث في الكتاب
             </button>
 
-            <div className="w-px h-5 bg-[var(--bg-border)] mx-1" />
+            <div className="w-px h-5 bg-border mx-1" />
 
             <button
               onClick={toggleBookmark}
-              className={`px-2.5 py-1.5 text-xs pixel-btn flex items-center gap-1 ${
-                 bookmarked ? 'bg-[var(--accent)] text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)]'
+              className={`flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-lg border transition-all ${
+                bookmarked
+                  ? 'bg-primary/10 border-primary/40 text-primary font-medium'
+                  : 'border-border text-secondary-foreground hover:border-primary/40 hover:text-foreground'
               }`}
             >
-              <svg className={`w-3.5 h-3.5 ${bookmarked ? 'fill-current' : ''}`} fill={bookmarked ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-              </svg>
+              <Bookmark className={`w-3.5 h-3.5 ${bookmarked ? 'fill-current' : ''}`} />
               علامة
             </button>
 
             <button
-              onClick={() => setShowInfo(!showInfo)}
-              className={`px-2.5 py-1.5 text-xs pixel-btn ${
-                 showInfo ? 'bg-[var(--accent)] text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)]'
+              onClick={() => setSidePanel(sidePanel === 'info' ? null : 'info')}
+              className={`flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-lg border transition-all ${
+                sidePanel === 'info'
+                  ? 'bg-primary/10 border-primary/40 text-primary font-medium'
+                  : 'border-border text-secondary-foreground hover:border-primary/40 hover:text-foreground'
               }`}
             >
+              <Info className="w-3.5 h-3.5" />
               معلومات
             </button>
 
             {book.pdf_path && onOpenPdf && (
               <button
                 onClick={() => onOpenPdf(book)}
-                className="px-2.5 py-1.5 text-xs pixel-btn text-[var(--text-secondary)]"
+                aria-label="عرض PDF"
+                title="عرض PDF"
+                className="p-2 rounded-lg border border-border text-secondary-foreground hover:border-primary/40 hover:text-foreground transition-all"
               >
-                PDF
+                <FileText className="w-3.5 h-3.5" />
               </button>
             )}
 
-            <div className="w-px h-5 bg-[var(--bg-border)] mx-1" />
+            <div className="w-px h-5 bg-border mx-1" />
 
             {content.length > 0 && (
               <>
@@ -445,46 +519,54 @@ export function BookReader({ book, onBack, onOpenAuthor, onOpenPdf }: BookReader
                       defaultName: `${book.title}.txt`,
                     });
                   }}
-                  className="px-2.5 py-1.5 text-xs pixel-btn text-[var(--text-secondary)]"
+                  aria-label="تصدير"
+                  title="تصدير"
+                  className="p-2 rounded-lg border border-border text-secondary-foreground hover:border-primary/40 hover:text-foreground transition-all"
                 >
-                  تصدير
+                  <Download className="w-3.5 h-3.5" />
                 </button>
                 <button
-                  onClick={() => window.print()}
-                  className="px-2.5 py-1.5 text-xs pixel-btn text-[var(--text-secondary)]"
+                  onClick={() => window.api.print()}
+                  aria-label="طباعة"
+                  title="طباعة"
+                  className="p-2 rounded-lg border border-border text-secondary-foreground hover:border-primary/40 hover:text-foreground transition-all"
                 >
-                  طباعة
+                  <Printer className="w-3.5 h-3.5" />
                 </button>
               </>
             )}
 
-            <div className="w-px h-5 bg-[var(--bg-border)] mx-1" />
+            <div className="w-px h-5 bg-border mx-1" />
 
-            <div className="flex items-center gap-1 bg-[var(--bg-card)] pixel-card-sm p-0.5">
+            <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5 border border-border">
               <button
                 onClick={() => setFontSize(Math.max(0.8, fontSize - 0.1))}
-                className="px-1.5 py-0.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-border)] transition-all text-xs pixel-btn"
+                className="p-1 rounded text-secondary-foreground hover:text-foreground hover:bg-background transition-all"
+                aria-label="تصغير الخط"
               >
-                أ-
+                <Minus className="w-3.5 h-3.5" />
               </button>
-              <span className="text-[var(--text-muted)] text-[10px] px-1 min-w-[2.5em] text-center font-pixel">{Math.round(fontSize * 100)}</span>
+              <span className="text-muted-foreground text-[11px] px-1 min-w-[2.5em] text-center tabular-nums">
+                {Math.round(fontSize * 100).toLocaleString('ar')}
+              </span>
               <button
                 onClick={() => setFontSize(Math.min(2.5, fontSize + 0.1))}
-                className="px-1.5 py-0.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-border)] transition-all text-sm pixel-btn"
+                className="p-1 rounded text-secondary-foreground hover:text-foreground hover:bg-background transition-all"
+                aria-label="تكبير الخط"
               >
-                أ+
+                <Plus className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            <div className="flex items-center gap-0.5 bg-[var(--bg-card)] pixel-card-sm p-0.5">
+            <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5 border border-border">
               {themes.map((t) => (
                 <button
                   key={t.key}
                   onClick={() => handleThemeChange(t.key)}
-                  className={`px-1.5 py-0.5 text-[10px] pixel-btn transition-all ${
+                  className={`px-2 py-1 text-[11px] rounded-md transition-all ${
                     readerTheme === t.key
-                       ? 'bg-[var(--accent)] text-[var(--text-primary)] font-medium'
-                      : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                      ? 'bg-primary/10 text-primary font-medium'
+                      : 'text-muted-foreground hover:text-secondary-foreground'
                   }`}
                 >
                   {t.label}
@@ -495,7 +577,7 @@ export function BookReader({ book, onBack, onOpenAuthor, onOpenPdf }: BookReader
         </div>
 
         {searchOpen && (
-          <div className="px-4 py-2 bg-[var(--bg-card)] border-b-2 border-[var(--border)] flex items-center gap-2">
+          <div className="px-4 py-2 bg-card border-b border-border flex items-center gap-2">
             <input
               ref={searchInputRef}
               type="text"
@@ -511,36 +593,31 @@ export function BookReader({ book, onBack, onOpenAuthor, onOpenPdf }: BookReader
                 }
               }}
               placeholder="ابحث في الصفحة..."
-              className="flex-1 bg-[var(--bg-surface)] text-[var(--text-primary)] text-sm px-3 py-1.5 rounded border border-[var(--border)] focus:outline-none focus:border-[var(--accent)] placeholder-[var(--text-muted)]"
-              dir="auto"
+              className="flex-1 bg-background text-foreground text-sm px-3 py-1.5 rounded-lg border border-border focus:outline-none focus:border-ring focus:ring-2 focus:ring-ring/20 transition-all"
             />
             {matchCount > 0 && (
-              <span className="text-xs text-[var(--text-muted)] whitespace-nowrap">
+              <span className="text-xs text-muted-foreground whitespace-nowrap tabular-nums">
                 {matchIndex + 1} / {matchCount}
               </span>
             )}
             {searchQuery && matchCount === 0 && (
-              <span className="text-xs text-[var(--danger)] whitespace-nowrap">
+              <span className="text-xs text-danger whitespace-nowrap">
                 لا توجد نتائج
               </span>
             )}
             <button
               onClick={handleSearchPrev}
               disabled={matchCount === 0}
-              className="p-1 rounded text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-border)] disabled:opacity-30 transition-all"
+              className="p-1 rounded text-secondary-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 transition-all"
             >
-              <svg className="w-4 h-4 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-              </svg>
+              <ChevronUp className="w-4 h-4 rtl:rotate-180" />
             </button>
             <button
               onClick={handleSearchNext}
               disabled={matchCount === 0}
-              className="p-1 rounded text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-border)] disabled:opacity-30 transition-all"
+              className="p-1 rounded text-secondary-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 transition-all"
             >
-              <svg className="w-4 h-4 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+              <ChevronDown className="w-4 h-4 rtl:rotate-180" />
             </button>
             <button
               onClick={() => {
@@ -548,15 +625,15 @@ export function BookReader({ book, onBack, onOpenAuthor, onOpenPdf }: BookReader
                 setSearchQuery('');
                 setMatchIndex(0);
               }}
-              className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-border)] transition-all text-xs"
+              className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
             >
-              ✕
+              <X className="w-4 h-4" />
             </button>
           </div>
         )}
 
         {bookSearchOpen && (
-          <div className="bg-[var(--bg-card)] border-b border-[var(--border)]">
+          <div className="bg-card border-b border-border">
             <div className="px-4 py-2 flex items-center gap-2">
               <input
                 ref={bookSearchRef}
@@ -567,8 +644,7 @@ export function BookReader({ book, onBack, onOpenAuthor, onOpenPdf }: BookReader
                   handleBookSearch(e.target.value);
                 }}
                 placeholder="ابحث في الكتاب كاملاً..."
-              className="flex-1 bg-[var(--bg-surface)] text-[var(--text-primary)] text-sm px-3 py-1.5 rounded border border-[var(--border)] focus:outline-none focus:border-[var(--accent)] placeholder-[var(--text-muted)]"
-                dir="auto"
+                className="flex-1 bg-background text-foreground text-sm px-3 py-1.5 rounded-lg border border-border focus:outline-none focus:border-ring focus:ring-2 focus:ring-ring/20 transition-all"
               />
               <button
                 onClick={() => {
@@ -576,38 +652,38 @@ export function BookReader({ book, onBack, onOpenAuthor, onOpenPdf }: BookReader
                   setBookSearchQuery('');
                   setBookSearchResults([]);
                 }}
-                className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-border)] transition-all text-xs"
+                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
             {bookSearchQuery && (
-              <div className="max-h-48 overflow-y-auto border-t border-[var(--border)]">
+              <div className="max-h-48 overflow-y-auto border-t border-border">
                 {bookSearchLoading ? (
-                  <div className="px-4 py-3 text-[var(--text-muted)] text-xs">جاري البحث...</div>
+                  <div className="px-4 py-3 text-muted-foreground text-xs">جاري البحث...</div>
                 ) : bookSearchResults.length === 0 ? (
-                  <div className="px-4 py-3 text-[var(--text-muted)] text-xs">لا توجد نتائج</div>
+                  <div className="px-4 py-3 text-muted-foreground text-xs">لا توجد نتائج</div>
                 ) : (
-                  <div className="divide-y divide-[var(--border)]/50">
+                  <div className="divide-y divide-border/50">
                     {bookSearchResults.slice(0, 20).map((item, i) => (
                       <button
                         key={item.id || i}
                         onClick={() => navigateToSearchResult(item)}
-                        className="w-full text-start px-4 py-2 hover:bg-[var(--bg-border)]/50 transition-colors"
+                        className="w-full text-start px-4 py-2 hover:bg-muted transition-colors"
                       >
-                        <div className="text-xs text-[var(--text-secondary)] leading-relaxed line-clamp-2"
+                        <div className="text-xs text-secondary-foreground leading-relaxed line-clamp-2"
                           dangerouslySetInnerHTML={{
                             __html: item.content
                               .replace(new RegExp(bookSearchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'),
-                                (m: string) => `<mark class="bg-[var(--accent)]/40 text-[var(--text-primary)] rounded-sm">${m}</mark>`)
+                                (m: string) => `<mark class="search-highlight">${m}</mark>`)
                               .slice(0, 300)
                           }}
                         />
-                        <div className="text-[10px] text-[var(--text-muted)] mt-1">صفحة {item.page}</div>
+                        <div className="text-[10px] text-muted-foreground mt-1">صفحة {item.page}</div>
                       </button>
                     ))}
                     {bookSearchResults.length > 20 && (
-                      <div className="px-4 py-2 text-[var(--text-muted)] text-[10px] text-center">
+                      <div className="px-4 py-2 text-muted-foreground text-[10px] text-center">
                         و {bookSearchResults.length - 20} نتيجة أخرى...
                       </div>
                     )}
@@ -618,130 +694,70 @@ export function BookReader({ book, onBack, onOpenAuthor, onOpenPdf }: BookReader
           </div>
         )}
 
-        {showInfo && (
-          <div className="w-72 bg-[var(--bg-surface)] border-e border-[var(--border)] flex flex-col overflow-hidden shrink-0">
-            <div className="px-3 py-2 border-b border-[var(--border)] bg-[var(--bg-card)] flex items-center justify-between">
-              <h3 className="text-[var(--text-secondary)] text-xs font-medium">معلومات الكتاب</h3>
-              <button
-                onClick={() => setShowInfo(false)}
-                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-xs"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-3 space-y-3">
-              <div>
-                <div className="text-[var(--text-muted)] text-[10px] mb-0.5">العنوان</div>
-                <div className="text-[var(--text-primary)] text-sm leading-relaxed">{book.title}</div>
-              </div>
-              {book.author_name && (
-                <div>
-                  <div className="text-[var(--text-muted)] text-[10px] mb-0.5">المؤلف</div>
-                  <button
-                    onClick={() => book.author_id && onOpenAuthor(book.author_id)}
-                    className="text-[var(--accent)] text-sm hover:text-[var(--accent-hover)] transition-colors text-start"
-                  >
-                    {book.author_name}
-                  </button>
-                </div>
-              )}
-              {book.category_name && (
-                <div>
-                  <div className="text-[var(--text-muted)] text-[10px] mb-0.5">التصنيف</div>
-                  <div className="text-[var(--text-secondary)] text-sm">{book.category_name}</div>
-                </div>
-              )}
-              {book.description && (
-                <div>
-                  <div className="text-[var(--text-muted)] text-[10px] mb-0.5">الوصف</div>
-                  <div className="text-[var(--text-secondary)] text-xs leading-relaxed whitespace-pre-line">{book.description}</div>
-                </div>
-              )}
-              {book.pdf_path && (
-                <div>
-                  <div className="text-[var(--text-muted)] text-[10px] mb-0.5">ملف PDF</div>
-                  <button
-                    onClick={() => onOpenPdf?.(book)}
-                    className="text-[var(--accent)] text-xs hover:text-[var(--accent-hover)] transition-colors"
-                  >
-                    عرض PDF
-                  </button>
-                </div>
-              )}
-              <div>
-                <div className="text-[var(--text-muted)] text-[10px] mb-0.5">محتوى</div>
-                <div className="text-[var(--text-secondary)] text-xs">
-                  {totalBookPages.toLocaleString('ar')} صفحة
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         <div ref={contentRef} className="flex-1 overflow-y-auto p-6 lg:p-8 relative reader-area" onMouseUp={handleTextSelection}>
           {loading ? (
             <div className="space-y-4">
               {[...Array(5)].map((_, i) => (
                 <div key={i} className="animate-pulse">
-                  <div className="h-4 bg-[var(--bg-border)] rounded w-full mb-2" />
-                  <div className="h-4 bg-[var(--bg-border)] rounded w-11/12 mb-2" />
-                  <div className="h-4 bg-[var(--bg-border)] rounded w-4/5" />
+                  <div className="h-4 bg-border rounded w-full mb-2" />
+                  <div className="h-4 bg-border rounded w-11/12 mb-2" />
+                  <div className="h-4 bg-border rounded w-4/5" />
                 </div>
               ))}
             </div>
           ) : content.length === 0 ? (
             <div className="text-center py-20">
-              <div className="text-[var(--text-muted)] mb-4">
-                <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                </svg>
+              <div className="text-muted-foreground mb-4">
+                <BookOpen className="w-16 h-16 mx-auto" strokeWidth={1} />
               </div>
               {book.pdf_path ? (
                 <div>
-                  <p className="text-[var(--text-secondary)] mb-3">هذا الكتاب متوفر بصيغة PDF</p>
+                  <p className="text-secondary-foreground mb-3">هذا الكتاب متوفر بصيغة PDF</p>
                   <button
-                    className="px-6 py-2.5 bg-[var(--accent)] text-[var(--text-primary)] rounded-xl font-medium hover:bg-[var(--accent-hover)] transition-all"
+                    className="px-6 py-2.5 bg-primary text-primary-foreground rounded-xl font-medium hover:opacity-90 transition-all"
                     onClick={() => onOpenPdf?.(book)}
                   >
                     عرض PDF
                   </button>
                 </div>
               ) : (
-                <p className="text-[var(--text-secondary)]">هذا الكتاب غير متوفر للنص الكامل</p>
+                <p className="text-secondary-foreground">هذا الكتاب غير متوفر للنص الكامل</p>
               )}
             </div>
           ) : (
-            <div className={`arabic-text reader-${readerTheme}`} style={{ fontSize: `${fontSize}rem` }}>
-              {highlightedContent.map((c, ci) => (
-                <div key={c.id} className="mb-6 leading-relaxed whitespace-pre-line">
-                  {c._parts ? (
-                    c._parts.map((part: any, pi: number) => {
-                      if (typeof part === 'string') return part;
-                      if (part.isMatch) {
-                        const globalIdx = c._matchOffset + c._parts.slice(0, pi + 1).filter((p: any) => typeof p !== 'string' && p.isMatch).length - 1;
-                        const isActive = globalIdx === matchIndex;
-                        return (
-                          <mark
-                            ref={(el) => { matchRefs.current[globalIdx] = el; }}
-                            key={pi}
-                            className={`rounded-sm ${
-                              isActive
-                                ? 'bg-[var(--accent)] text-[var(--text-primary)]'
-                                : 'bg-[var(--accent)]/40 text-[var(--text-primary)]'
-                            }`}
-                            data-match-index={globalIdx}
-                          >
-                            {part.text}
-                          </mark>
-                        );
-                      }
-                      return <span key={pi}>{part.text}</span>;
-                    })
-                  ) : (
-                    c.content
-                  )}
-                </div>
-              ))}
+            <div className="mx-auto max-w-3xl">
+              <div className={`arabic-text reader-${readerTheme}`} style={{ fontSize: `${fontSize}rem` }}>
+                {highlightedContent.map((c, ci) => (
+                  <div key={c.id} className="mb-6 leading-relaxed whitespace-pre-line">
+                    {c._parts ? (
+                      c._parts.map((part: any, pi: number) => {
+                        if (typeof part === 'string') return part;
+                        if (part.isMatch) {
+                          const globalIdx = c._matchOffset + c._parts.slice(0, pi + 1).filter((p: any) => typeof p !== 'string' && p.isMatch).length - 1;
+                          const isActive = globalIdx === matchIndex;
+                          return (
+                            <mark
+                              ref={(el) => { matchRefs.current[globalIdx] = el; }}
+                              key={pi}
+                              className={`rounded-xs ${
+                                isActive
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'bg-primary/40 text-[var(--reader-text)]'
+                              }`}
+                              data-match-index={globalIdx}
+                            >
+                              {part.text}
+                            </mark>
+                          );
+                        }
+                        return <span key={pi}>{part.text}</span>;
+                      })
+                    ) : (
+                      c.content
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -752,8 +768,9 @@ export function BookReader({ book, onBack, onOpenAuthor, onOpenPdf }: BookReader
             >
               <button
                 onClick={handleSaveSelection}
-                className="bg-[var(--accent)] text-[var(--text-primary)] text-xs px-3 py-1.5 rounded-lg shadow-lg hover:bg-[var(--accent-hover)] transition-all whitespace-nowrap"
+                className="flex items-center gap-1 bg-primary text-primary-foreground text-xs px-3 py-1.5 rounded-lg shadow-lg hover:opacity-90 transition-all whitespace-nowrap"
               >
+                <StickyNote className="w-3.5 h-3.5" />
                 حفظ كملاحظة
               </button>
             </div>
@@ -761,23 +778,23 @@ export function BookReader({ book, onBack, onOpenAuthor, onOpenPdf }: BookReader
         </div>
 
         {totalBookPages > 0 && (
-          <div className="px-4 py-2 bg-[var(--bg-surface)] border-t border-[var(--border)] flex items-center justify-center gap-4">
-            <button
-              onClick={() => loadPage(currentPage + 1)}
-              disabled={currentPage >= totalBookPages}
-              className="px-3 py-1 rounded bg-[var(--bg-border)] text-[var(--text-secondary)] disabled:opacity-30 hover:bg-[var(--text-muted)] transition-all text-sm"
-            >
-              التالي
-            </button>
-            <span className="text-[var(--text-secondary)] text-sm">
-              صفحة {currentPage} من {totalBookPages}
-            </span>
+          <div className="px-4 py-2 bg-card border-t border-border flex items-center justify-center gap-4">
             <button
               onClick={() => loadPage(currentPage - 1)}
               disabled={currentPage <= 1}
-              className="px-3 py-1 rounded bg-[var(--bg-border)] text-[var(--text-secondary)] disabled:opacity-30 hover:bg-[var(--text-muted)] transition-all text-sm"
+              className="px-3 py-1 rounded-lg bg-muted text-secondary-foreground disabled:opacity-30 hover:text-foreground transition-all text-sm"
             >
               السابق
+            </button>
+            <span className="text-secondary-foreground text-sm tabular-nums">
+              صفحة {currentPage.toLocaleString('ar')} من {totalBookPages.toLocaleString('ar')}
+            </span>
+            <button
+              onClick={() => loadPage(currentPage + 1)}
+              disabled={currentPage >= totalBookPages}
+              className="px-3 py-1 rounded-lg bg-muted text-secondary-foreground disabled:opacity-30 hover:text-foreground transition-all text-sm"
+            >
+              التالي
             </button>
           </div>
         )}

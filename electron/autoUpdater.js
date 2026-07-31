@@ -1,7 +1,39 @@
 const { BrowserWindow } = require('electron');
+const path = require('path');
+const os = require('os');
 
 let mainWindow = null;
 let autoUpdater = null;
+
+const PRODUCT_NAME = 'Al-Maktaba Al-Shamela';
+const PRODUCT_DIR = 'al-maktaba-al-shamela';
+
+function isDevRun() {
+  const dir = path.dirname(process.execPath);
+  return dir.includes('node_modules') || dir.includes('electron');
+}
+
+function getInstallDirectory() {
+  const exeDir = path.dirname(process.execPath);
+  switch (process.platform) {
+    case 'win32': {
+      const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
+      const nsisDir = path.join(localAppData, 'Programs', PRODUCT_NAME);
+      return isDevRun() ? nsisDir : exeDir;
+    }
+    case 'darwin': {
+      const appBundle = path.join('/Applications', `${PRODUCT_NAME}.app`);
+      if (isDevRun()) return appBundle;
+      const bundle = path.resolve(exeDir, '..', '..', '..');
+      return bundle.endsWith('.app') ? bundle : appBundle;
+    }
+    default: {
+      if (process.env.APPIMAGE) return path.dirname(process.env.APPIMAGE);
+      if (isDevRun()) return path.join('/', 'opt', PRODUCT_DIR);
+      return exeDir;
+    }
+  }
+}
 
 function ensureLoaded() {
   if (!autoUpdater) {
@@ -128,4 +160,5 @@ module.exports = {
   downloadUpdate,
   quitAndInstall,
   getCurrentVersion,
+  getInstallDirectory,
 };
