@@ -65,20 +65,23 @@ jobs:
 
       - name: Generate release notes
         run: |
-          cat > RELEASE_NOTES.md << 'EOF'
-          ## 📦 الإصدار
+          VERSION="${{ needs.release.outputs.version }}"
+          cat > RELEASE_NOTES.md << EOF
+          ## 📦 الإصدار v${VERSION}
 
           ⚠️ هذا المشروع غير رسمي — المطور ليس عضوًا في فريق المكتبة الشاملة.
           قاعدة البيانات تُبنى تلقائياً عند أول تشغيل عبر API الموقع الرسمي.
 
           ### ⬇ التحميل
 
-          | الملف | المنصة |
-          |------|--------|
-          | `Al-Maktaba-Al-Shamela-Setup-*.exe` | ويندوز (يمكن اختيار مجلد التثبيت) |
-          | `Al-Maktaba-Al-Shamela-*-arm64.dmg` | ماك (Apple Silicon) |
-          | `Al-Maktaba-Al-Shamela-*.AppImage` | لينكس (يدعم التحديث التلقائي) |
-          | `Al-Maktaba-Al-Shamela-*.deb` | لينكس (Ubuntu/Debian) |
+          | | الملف | المنصة |
+          |-|------|--------|
+          | 🪟 | [Al-Maktaba-Al-Shamela-Setup-${VERSION}-x64.exe](https://github.com/8u9i/shamela-modern/releases/download/v${VERSION}/Al-Maktaba-Al-Shamela-Setup-${VERSION}-x64.exe) | ويندوز (يمكن اختيار مجلد التثبيت) |
+          | 🍎 | [Al-Maktaba-Al-Shamela-${VERSION}-arm64.dmg](https://github.com/8u9i/shamela-modern/releases/download/v${VERSION}/Al-Maktaba-Al-Shamela-${VERSION}-arm64.dmg) | ماك (Apple Silicon) |
+          | 🐧 | [Al-Maktaba-Al-Shamela-${VERSION}.AppImage](https://github.com/8u9i/shamela-modern/releases/download/v${VERSION}/Al-Maktaba-Al-Shamela-${VERSION}.AppImage) | لينكس (يدعم التحديث التلقائي) |
+          | 🐧 | [Al-Maktaba-Al-Shamela-${VERSION}.deb](https://github.com/8u9i/shamela-modern/releases/download/v${VERSION}/Al-Maktaba-Al-Shamela-${VERSION}.deb) | لينكس (Ubuntu/Debian) |
+
+          **لست متأكداً أي ملف تختار؟** إذا كنت على ويندوز فاختر ملف \`.exe\`. إذا كنت على ماك فاختر \`.dmg\`. إذا كنت على لينكس فاختر \`.AppImage\`.
 
           ### 🔄 التحديث التلقائي
 
