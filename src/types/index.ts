@@ -73,6 +73,7 @@ export interface UpdateCheckResult {
   local: number;
   newCount: number;
   updateCount: number;
+  repaired?: number;
   newBooks: any[];
   updatedBooks: any[];
   error?: string;

@@ -123,6 +123,55 @@ function decodeCp1256(buf) {
   catch (e) { return buf.toString('utf8'); }
 }
 
+// True when a decoded title looks like a source filename rather than a real
+// title (e.g. "Alsaidia_431_Modified" or "chikhkaabache_16"). Some .bok files
+// store a filename in the Main/Bk field; the API book_name is authoritative
+// for those. A genuine Arabic title always contains Arabic letters.
+function looksLikeFileTitle(title) {
+  if (!title) return false;
+  if (/[\u0600-\u06FF]/.test(title)) return false;
+  return /[\d_]/.test(title) || /\.(zip|bok|txt)$/i.test(title);
+}
+
+// Fixes already-installed books whose title is a filename (from an earlier
+// install) using the API's proper Arabic book_name. Runs on every update
+// check so existing libraries self-heal without re-downloading content.
+function repairFilelikeTitles(apiBooks) {
+  try {
+    const db = new Database(getDbPath());
+    const bad = db
+      .prepare('SELECT id, shamela_id, title FROM books')
+      .all()
+      .filter((r) => looksLikeFileTitle(r.title));
+    if (bad.length === 0) {
+      db.close();
+      return 0;
+    }
+    const byId = new Map(apiBooks.map((b) => [String(b.id), b]));
+    const update = db.prepare('UPDATE books SET title = ? WHERE id = ?');
+    let repaired = 0;
+    const tx = db.transaction(() => {
+      for (const row of bad) {
+        const api = byId.get(String(row.shamela_id));
+        if (api && api.book_name && api.book_name !== row.title) {
+          update.run(api.book_name, row.id);
+          repaired++;
+        }
+      }
+    });
+    tx();
+    if (repaired > 0) {
+      const { syncBooksFts } = require('./searchIndex');
+      syncBooksFts(db);
+    }
+    db.close();
+    return repaired;
+  } catch (e) {
+    console.error('repairFilelikeTitles failed:', e.message);
+    return 0;
+  }
+}
+
 async function checkForUpdates() {
   ensureTmpDir();
   const apiBooks = await fetchJson(BOOKS_API);
@@ -166,11 +215,15 @@ async function checkForUpdates() {
     }
   }
 
+  // Self-heal earlier installs whose titles are source filenames.
+  const repaired = repairFilelikeTitles(apiBooks);
+
   return {
     total: apiBooks.length,
     local: existing.size,
     newCount: newBooks.length,
     updateCount: updatedBooks.length,
+    repaired,
     newBooks,
     updatedBooks,
   };
@@ -232,7 +285,8 @@ async function installBookZip(book, zipPath, writeDb, onProgress) {
     const betakaData = Buffer.from(row.Betaka || '', 'latin1');
     const authData = Buffer.from(row.Auth || '', 'latin1');
 
-    const title = decodeCp1256(bkData).trim() || book.book_name;
+    const bkTitle = decodeCp1256(bkData).trim();
+    const title = bkTitle && !looksLikeFileTitle(bkTitle) ? bkTitle : book.book_name;
     const authorName = decodeCp1256(authData).trim() || book.book_author;
     const description = decodeCp1256(betakaData).trim() || book.book_card;
     const shamelaId = Number(book.id);
@@ -498,4 +552,4 @@ async function runUpdates(booksToInstall, onProgress) {
   onProgress('اكتمل التحديث', booksToInstall.length, booksToInstall.length);
 }
 
-module.exports = { checkForUpdates, runUpdates, installBook, setPaths, downloadFile };
+module.exports = { checkForUpdates, runUpdates, installBook, setPaths, downloadFile, looksLikeFileTitle, repairFilelikeTitles };

@@ -165,6 +165,11 @@ export function UpdateView({ onComplete, onSkip }: UpdateViewProps) {
                 ? 'المكتبة محدثة بالفعل'
                 : 'اكتمل التحديث'}
             </div>
+            {checkResult && checkResult.repaired > 0 && (
+              <div className="text-muted-foreground text-xs mb-4">
+                تم إصلاح {checkResult.repaired.toLocaleString('ar')} عنواناً خاطئاً
+              </div>
+            )}
             <button onClick={onComplete} className="pixel-btn-gold text-sm px-6 py-2">
               فتح المكتبة
             </button>
