@@ -142,6 +142,30 @@ export const Sidebar = memo(function Sidebar({
     const section50074 = categories.find(c => c.id === 50074);
     const subIds = [50029, 50044, 50028];
 
+    // API-built DBs contain only flat level-0 speciality categories (no
+    // 50074/50029/... hierarchy). Group them by name into a single list.
+    if (!section50074) {
+      const byName = new Map<string, Category>();
+      for (const c of categories) {
+        const key = c.name || 'غير مصنف';
+        if (!byName.has(key)) byName.set(key, c);
+      }
+      const leaves = [...byName.values()]
+        .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ar'))
+        .map(c => ({ id: c.id, name: c.name || 'غير مصنف', children: [], leaf: true }));
+      return {
+        id: 0,
+        name: 'كتب البرنامج',
+        children: [{
+          id: 50074,
+          name: 'كتب الموقع الرسمي للشاملة الإباضية',
+          children: leaves,
+          leaf: false,
+        }],
+        leaf: false,
+      };
+    }
+
     const siteSubs = subIds.map(sid => {
       const sub = categories.find(c => c.id === sid);
       const subChildren = getSectionChildren(sid, categories);

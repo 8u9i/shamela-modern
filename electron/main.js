@@ -4,6 +4,7 @@ const { pathToFileURL } = require('url');
 const Database = require('better-sqlite3');
 const fs = require('fs');
 const autoUpdater = require('./autoUpdater');
+const { expandCategoryIds } = require('./categoryTree');
 
 let mainWindow;
 
@@ -258,24 +259,6 @@ ipcMain.handle('db:getCategories', () => {
   return db.prepare('SELECT * FROM categories ORDER BY level, order_num, name').all();
 });
 
-function getSectionChildIds(categoryId) {
-  if (!db) return [categoryId];
-  const cat = db.prepare('SELECT level, order_num FROM categories WHERE id = ?').get(categoryId);
-  if (!cat) return [categoryId];
-  if (cat.level === 1) {
-    // Level 1 (50074): return level-2 sub-sections (recursion will expand each to level-3)
-    return db.prepare('SELECT id FROM categories WHERE level = 2 ORDER BY order_num').all().map(c => c.id);
-  }
-  if (cat.level === 2) {
-    // Level 2: return level-3 children within this section's order_num range
-    const next = db.prepare('SELECT order_num FROM categories WHERE level = 2 AND order_num > ? ORDER BY order_num LIMIT 1').get(cat.order_num);
-    const endOrder = next ? next.order_num : 999999;
-    const children = db.prepare('SELECT id FROM categories WHERE level = 3 AND order_num > ? AND order_num < ? ORDER BY order_num').all(cat.order_num, endOrder);
-    return children.map(c => c.id);
-  }
-  return [categoryId];
-}
-
 ipcMain.handle('db:getBooks', (event, { categoryId, authorId, search, page = 0, limit = 50 } = {}) => {
   if (!db) return { books: [], total: 0 };
 
@@ -285,19 +268,7 @@ ipcMain.handle('db:getBooks', (event, { categoryId, authorId, search, page = 0, 
   if (categoryId) {
     const catId = toInt(categoryId);
     if (!catId) return { books: [], total: 0 };
-    const catIds = [];
-    const queue = [catId];
-    const seen = new Set();
-    while (queue.length > 0) {
-      const id = queue.pop();
-      if (seen.has(id)) continue;
-      seen.add(id);
-      catIds.push(id);
-      const childIds = getSectionChildIds(id);
-      for (const childId of childIds) {
-        if (!seen.has(childId)) queue.push(childId);
-      }
-    }
+    const catIds = expandCategoryIds(db, catId);
     where.push('category_id IN (' + catIds.map(() => '?').join(',') + ')');
     params.push(...catIds);
   }

@@ -135,6 +135,29 @@ test.describe('Main App Shell', () => {
   test('sidebar has جميع الكتب button', async () => {
     await expect(window.locator('button:has-text("جميع الكتب")')).toBeVisible({ timeout: 10000 });
   });
+
+  test('category root shows books (not 0) on API-built DBs', async () => {
+    // Regression: on DBs built via the API (flat level-0 categories, no
+    // 50074 hierarchy), clicking the root section used to expand to
+    // `category_id IN (50074)` and return zero books.
+    await window.evaluate(() => {
+      document.querySelectorAll('[data-base-ui-inert]').forEach(el => el.remove());
+    }).catch(() => {});
+    await window.waitForTimeout(300);
+
+    const root = window.locator('button:has-text("كتب الموقع الرسمي للشاملة الإباضية")').first();
+    await expect(root).toBeVisible({ timeout: 10000 });
+    await clickSafe(root);
+    await window.waitForTimeout(1500);
+
+    // The books list must render real books, not "0 كتاب".
+    const count = window.locator('text=/[٠-٩]/').first();
+    await expect(count).toBeVisible({ timeout: 10000 });
+    const text = (await count.textContent()) || '';
+    const digits = text.match(/[0-9٠-٩]+/g)?.join('') || '0';
+    expect(Number(digits.replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))))).toBeGreaterThan(0);
+    await expect(window.locator('.book-card').first()).toBeVisible({ timeout: 10000 });
+  });
 });
 
 test.describe('HomeView Content', () => {
