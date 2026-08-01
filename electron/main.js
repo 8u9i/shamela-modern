@@ -56,12 +56,23 @@ function toIntArray(value, maxLen = 500) {
 }
 
 // Local PDF library (dev: the desktop install next to the repo; prod: a writable
-// download cache under userData). Overridable for tests.
+// download cache inside the data folder, so the whole library — DB + PDFs — lives
+// under one self-contained directory). Overridable for tests.
 function getPdfDir() {
   if (process.env.SHAMELA_PDF_DIR) return process.env.SHAMELA_PDF_DIR;
   return isDev
     ? path.join(appRoot, '..', 'eshamila.net', 'pdf')
-    : path.join(app.getPath('userData'), 'pdf');
+    : path.join(getDataDir(), 'pdf');
+}
+
+// One-time migration: production PDFs previously lived at userData/pdf next to
+// the data folder. Move them under data/pdf so books stay with the DB. No-op in
+// dev, or when there is nothing to migrate.
+function migrateLegacyPdfDir() {
+  if (isDev) return;
+  const oldDir = path.join(app.getPath('userData'), 'pdf');
+  const newDir = getPdfDir();
+  require('./pdfMigration').migrateLegacyPdfDir(oldDir, newDir);
 }
 
 const resourcesPath = process.resourcesPath || '';
@@ -891,6 +902,7 @@ ipcMain.handle('db:checkStatus', () => {
 app.whenReady().then(() => {
   const dataDir = getDataDir();
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+  migrateLegacyPdfDir();
   db = openDatabase();
   userDb = openUserDatabase();
   servicesDb = openServicesDatabase();
