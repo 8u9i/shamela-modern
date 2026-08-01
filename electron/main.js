@@ -616,19 +616,41 @@ ipcMain.handle('db:startUpdate', async (event, { bookIds } = {}) => {
       return { installed: 0, message: 'لا توجد كتب جديدة' };
     }
 
-    let progress = 0;
-    await updater.runUpdates(toInstall, (msg, current, total) => {
-      progress = { msg, current, total };
-      if (mainWindow && !mainWindow.webContents.isDestroyed()) {
-        mainWindow.webContents.send('update:progress', progress);
-      }
-      if (mainWindow) {
-        if (msg === 'اكتمل التحديث') {
-          mainWindow.setProgressBar(-1);
-        } else if (total > 0) {
-          mainWindow.setProgressBar(Math.min(1, current / total));
+    // Install runs in a worker thread so the UI stays responsive during large
+    // updates (downloads, MDB parsing and SQLite writes are all off the main
+    // process event loop).
+    const { Worker } = require('worker_threads');
+    await new Promise((resolve, reject) => {
+      const worker = new Worker(path.join(__dirname, 'updateWorker.js'), {
+        workerData: {
+          tmpDir: path.join(getDataDir(), '.update-tmp'),
+          dbPath: getDbPath(),
+          books: toInstall,
+        },
+      });
+      worker.on('message', (msg) => {
+        if (msg.type === 'progress') {
+          const progress = { msg: msg.msg, current: msg.current, total: msg.total };
+          if (mainWindow && !mainWindow.webContents.isDestroyed()) {
+            mainWindow.webContents.send('update:progress', progress);
+          }
+          if (mainWindow) {
+            if (msg.msg === 'اكتمل التحديث') {
+              mainWindow.setProgressBar(-1);
+            } else if (msg.total > 0) {
+              mainWindow.setProgressBar(Math.min(1, msg.current / msg.total));
+            }
+          }
+        } else if (msg.type === 'done') {
+          resolve();
+        } else if (msg.type === 'error') {
+          reject(new Error(msg.message || 'فشل التحديث'));
         }
-      }
+      });
+      worker.on('error', reject);
+      worker.on('exit', (code) => {
+        if (code !== 0) reject(new Error(`worker exited with code ${code}`));
+      });
     });
 
     updateInProgress = false;

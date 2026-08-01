@@ -140,10 +140,10 @@ export function UpdateView({ onComplete, onSkip }: UpdateViewProps) {
               </div>
             )}
             <div className="w-full bg-border h-2 rounded-full overflow-hidden">
-              {progress && (
+              {progress && progress.total > 0 && (
                 <div
                   className="bg-primary h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${(progress.current / progress.total) * 100}%` }}
+                  style={{ width: `${Math.min(100, (progress.current / progress.total) * 100)}%` }}
                 />
               )}
             </div>
@@ -165,7 +165,7 @@ export function UpdateView({ onComplete, onSkip }: UpdateViewProps) {
                 ? 'المكتبة محدثة بالفعل'
                 : 'اكتمل التحديث'}
             </div>
-            {checkResult && checkResult.repaired > 0 && (
+            {checkResult && typeof checkResult.repaired === 'number' && checkResult.repaired > 0 && (
               <div className="text-muted-foreground text-xs mb-4">
                 تم إصلاح {checkResult.repaired.toLocaleString('ar')} عنواناً خاطئاً
               </div>

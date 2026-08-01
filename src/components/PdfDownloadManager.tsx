@@ -66,7 +66,9 @@ export function PdfDownloadManager() {
           <div>
             <h3 className="text-sm font-bold text-foreground">تحميل جميع ملفات PDF</h3>
             <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-              حمّل نسخ PDF لجميع الكتب دفعة واحدة للعمل دون اتصال بالإنترنت — نحو 2,010 ملفاً (تُستأنف تلقائياً عند تكرار التشغيل)
+              حمّل نسخ PDF لجميع الكتب دفعة واحدة للعمل دون اتصال بالإنترنت
+              {total > 0 ? ` — نحو ${total.toLocaleString('ar')} ملفاً حالياً` : ''}
+              {' '}(تُستأنف تلقائياً عند تكرار التشغيل)
             </p>
           </div>
         </div>

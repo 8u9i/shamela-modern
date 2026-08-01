@@ -187,9 +187,20 @@ async function checkForUpdates() {
     `).all();
     for (const r of rows) {
       existing.set(String(r.shamela_id), r);
-      if (r.has_content === 1 && r.content_rows === 1) {
-        const c = db.prepare('SELECT content FROM book_content WHERE book_id = ? LIMIT 1').get(r.id);
-        if (c && c.content && c.content.trim() === (r.title || '').trim()) {
+    }
+    // Single pass for broken installs (content replaced by its own title).
+    if (rows.some((r) => r.has_content === 1 && r.content_rows === 1)) {
+      const single = db.prepare(`
+        SELECT c.book_id, c.content
+        FROM book_content c
+        WHERE c.content IN (
+          SELECT b.title FROM books b WHERE b.has_content = 1
+          AND (SELECT COUNT(*) FROM book_content c2 WHERE c2.book_id = b.id) = 1
+        )
+      `).all();
+      for (const s of single) {
+        const r = rows.find((x) => x.id === s.book_id);
+        if (r && s.content && s.content.trim() === (r.title || '').trim()) {
           broken.add(String(r.shamela_id));
         }
       }
@@ -457,29 +468,33 @@ async function runUpdates(booksToInstall, onProgress) {
   // can no longer lose the last committed transactions.
   writeDb.pragma('synchronous = NORMAL');
   writeDb.pragma('cache_size = -64000');
+  // The install runs in a worker thread while the main process keeps its own
+  // connection (reads only during an update); wait instead of failing with
+  // SQLITE_BUSY if a write ever collides.
+  writeDb.pragma('busy_timeout = 30000');
 
   const { initSchema } = require('./dbSchema');
   initSchema(writeDb);
   const { ensureSearchIndex, syncBooksFts } = require('./searchIndex');
   ensureSearchIndex(writeDb);
 
-  const installOne = async (book, i) => {
-    const zipPath = await downloadBookZip(book, onProgress);
+  const installOne = async (book, i, retryTotal) => {
+    const zipPath = await downloadBookZip(book, (msg) => onProgress(msg, i + 1, retryTotal));
     if (zipPath) {
       try {
         await installBookZip(book, zipPath, writeDb, (msg) => {
-          onProgress(msg, i, total);
+          onProgress(msg, i + 1, retryTotal);
         });
         return true;
       } catch (e) {
         console.error(`Failed to install book ${book.book_name}:`, e);
-        onProgress(`فشل: ${book.book_name}`, i, total);
+        onProgress(`فشل: ${book.book_name}`, i + 1, retryTotal);
         return false;
       } finally {
         cleanupZip(zipPath);
       }
     } else {
-      onProgress(`فشل: ${book.book_name}`, i, total);
+      onProgress(`فشل: ${book.book_name}`, i + 1, retryTotal);
       return false;
     }
   };
@@ -492,8 +507,12 @@ async function runUpdates(booksToInstall, onProgress) {
   // Keep up to DOWNLOAD_CONCURRENCY downloads in flight; install as each finishes.
   const startDownloads = () => {
     while (pendingDownloads.length < DOWNLOAD_CONCURRENCY && cursor < total) {
-      const book = booksToInstall[cursor++];
-      pendingDownloads.push(downloadBookZip(book, onProgress).then((zipPath) => ({ book, zipPath })));
+      const idx = cursor++;
+      const book = booksToInstall[idx];
+      pendingDownloads.push(
+        downloadBookZip(book, (msg) => onProgress(msg, idx + 1, total))
+          .then((zipPath) => ({ book, zipPath }))
+      );
     }
   };
 
@@ -503,17 +522,17 @@ async function runUpdates(booksToInstall, onProgress) {
     if (zipPath) {
       try {
         await installBookZip(book, zipPath, writeDb, (msg) => {
-          onProgress(msg, i, total);
+          onProgress(msg, i + 1, total);
         });
       } catch (e) {
         console.error(`Failed to install book ${book.book_name}:`, e);
-        onProgress(`فشل: ${book.book_name}`, i, total);
+        onProgress(`فشل: ${book.book_name}`, i + 1, total);
         failedBooks.push(book);
       } finally {
         cleanupZip(zipPath);
       }
     } else {
-      onProgress(`فشل: ${book.book_name}`, i, total);
+      onProgress(`فشل: ${book.book_name}`, i + 1, total);
       failedBooks.push(book);
     }
   }
@@ -524,8 +543,8 @@ async function runUpdates(booksToInstall, onProgress) {
     const retryTotal = failedBooks.length;
     for (let r = 0; r < retryTotal; r++) {
       const book = failedBooks[r];
-      const ok = await installOne(book, r);
-      if (!ok) onProgress(`فشل بعد إعادة المحاولة: ${book.book_name}`, r, retryTotal);
+      const ok = await installOne(book, r, retryTotal);
+      if (!ok) onProgress(`فشل بعد إعادة المحاولة: ${book.book_name}`, r + 1, retryTotal);
     }
   }
 

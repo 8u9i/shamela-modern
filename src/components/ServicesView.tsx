@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { DuplicateAuthorGroup } from '../types';
 import { PdfDownloadManager } from './PdfDownloadManager';
+import { BookUpdateManager } from './BookUpdateManager';
 
 export function ServicesView() {
   const [dupGroups, setDupGroups] = useState<DuplicateAuthorGroup[]>([]);
@@ -108,9 +109,11 @@ export function ServicesView() {
           خدمات
         </h2>
         <p className="text-sm text-muted-foreground mt-1">
-          تحميل ملفات PDF وإصلاح المؤلفين المكررين وتوحيد الكتب
+          تحديث الكتب وتحميل ملفات PDF وإصلاح المؤلفين المكررين وتوحيد الكتب
         </p>
       </div>
+
+      <BookUpdateManager />
 
       <PdfDownloadManager />
 
