@@ -135,3 +135,21 @@ export interface AppUpdateStatus {
   total?: number;
   message?: string;
 }
+
+export interface PdfDownloadState {
+  running: boolean;
+  total: number;
+  cached: number;
+  downloaded: number;
+  failed: number;
+  stopped: boolean;
+}
+
+export interface PdfDownloadProgress {
+  type: 'start' | 'progress' | 'done' | 'stopped';
+  total: number;
+  downloaded: number;
+  failed: number;
+  stopped: boolean;
+  current?: string | null;
+}

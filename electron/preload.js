@@ -15,6 +15,14 @@ contextBridge.exposeInMainWorld('api', {
   searchContent: (opts) => ipcRenderer.invoke('db:searchContent', opts),
   getRecentBooks: () => ipcRenderer.invoke('db:getRecentBooks'),
   getPdfPath: (relativePath) => ipcRenderer.invoke('getPdfPath', relativePath),
+  downloadAllPdfs: () => ipcRenderer.invoke('pdf:downloadAll'),
+  stopPdfDownloads: () => ipcRenderer.invoke('pdf:stopDownload'),
+  getPdfDownloadState: () => ipcRenderer.invoke('pdf:getState'),
+  onPdfDownloadProgress: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('pdf:downloadProgress', handler);
+    return () => ipcRenderer.removeListener('pdf:downloadProgress', handler);
+  },
 
   addHistory: (opts) => ipcRenderer.invoke('db:addHistory', opts),
   getHistory: (opts) => ipcRenderer.invoke('db:getHistory', opts),

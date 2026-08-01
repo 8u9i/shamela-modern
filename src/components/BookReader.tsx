@@ -4,6 +4,7 @@ import {
   ChevronUp, ChevronDown, Minus, Plus, StickyNote
 } from 'lucide-react';
 import { Book } from '../types';
+import { sanitizeSnippet } from '../lib/sanitizeSnippet';
 
 interface BookReaderProps {
   book: Book;
@@ -673,10 +674,10 @@ export function BookReader({ book, onBack, onOpenAuthor, onOpenPdf }: BookReader
                       >
                         <div className="text-xs text-secondary-foreground leading-relaxed line-clamp-2"
                           dangerouslySetInnerHTML={{
-                            __html: item.snippet || item.content
+                            __html: sanitizeSnippet(item.snippet || item.content
                               .replace(new RegExp(bookSearchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'),
                                 (m: string) => `<mark class="search-highlight">${m}</mark>`)
-                              .slice(0, 300)
+                              .slice(0, 300))
                           }}
                         />
                         <div className="text-[10px] text-muted-foreground mt-1">صفحة {item.page}</div>

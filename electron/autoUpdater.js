@@ -35,6 +35,8 @@ function getInstallDirectory() {
   }
 }
 
+let listenersRegistered = false;
+
 function ensureLoaded() {
   if (!autoUpdater) {
     const mod = require('electron-updater');
@@ -42,6 +44,56 @@ function ensureLoaded() {
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = true;
     autoUpdater.allowPrerelease = false;
+  }
+  if (!listenersRegistered) {
+    // Register once: electron-updater events are emitted per-update-cycle, so
+    // re-registering on every check would pile up duplicate listeners.
+    autoUpdater.removeAllListeners();
+    autoUpdater.on('checking-for-update', () => {
+      sendToWindow('update:status', { status: 'checking' });
+    });
+
+    autoUpdater.on('update-available', (info) => {
+      sendToWindow('update:status', {
+        status: 'available',
+        version: info.version,
+        releaseDate: info.releaseDate,
+        releaseNotes: info.releaseNotes,
+      });
+    });
+
+    autoUpdater.on('update-not-available', (info) => {
+      sendToWindow('update:status', {
+        status: 'not-available',
+        version: info.version,
+      });
+    });
+
+    autoUpdater.on('download-progress', (progressObj) => {
+      sendToWindow('update:status', {
+        status: 'downloading',
+        bytesPerSecond: progressObj.bytesPerSecond,
+        percent: progressObj.percent,
+        transferred: progressObj.transferred,
+        total: progressObj.total,
+      });
+    });
+
+    autoUpdater.on('update-downloaded', (info) => {
+      sendToWindow('update:status', {
+        status: 'downloaded',
+        version: info.version,
+        releaseDate: info.releaseDate,
+      });
+    });
+
+    autoUpdater.on('error', (error) => {
+      sendToWindow('update:status', {
+        status: 'error',
+        message: error.message,
+      });
+    });
+    listenersRegistered = true;
   }
   return autoUpdater;
 }
@@ -60,52 +112,6 @@ function sendToWindow(channel, data) {
 function checkForUpdates() {
   try {
     const updater = ensureLoaded();
-
-    updater.on('checking-for-update', () => {
-      sendToWindow('update:status', { status: 'checking' });
-    });
-
-    updater.on('update-available', (info) => {
-      sendToWindow('update:status', {
-        status: 'available',
-        version: info.version,
-        releaseDate: info.releaseDate,
-        releaseNotes: info.releaseNotes,
-      });
-    });
-
-    updater.on('update-not-available', (info) => {
-      sendToWindow('update:status', {
-        status: 'not-available',
-        version: info.version,
-      });
-    });
-
-    updater.on('download-progress', (progressObj) => {
-      sendToWindow('update:status', {
-        status: 'downloading',
-        bytesPerSecond: progressObj.bytesPerSecond,
-        percent: progressObj.percent,
-        transferred: progressObj.transferred,
-        total: progressObj.total,
-      });
-    });
-
-    updater.on('update-downloaded', (info) => {
-      sendToWindow('update:status', {
-        status: 'downloaded',
-        version: info.version,
-        releaseDate: info.releaseDate,
-      });
-    });
-
-    updater.on('error', (error) => {
-      sendToWindow('update:status', {
-        status: 'error',
-        message: error.message,
-      });
-    });
-
     updater.checkForUpdates().catch((err) => {
       sendToWindow('update:status', {
         status: 'error',

@@ -143,21 +143,27 @@ export function BookList({ categoryId, onOpenBook, onOpenAuthor, compact }: Book
             {books.map((book) => (
               <div
                 key={book.id}
-                className="book-card bg-card border border-border rounded-xl p-4 text-start hover:border-primary/50 hover:shadow-md transition-all cursor-pointer"
-                onClick={() => onOpenBook(book)}
+                className="book-card bg-card border border-border rounded-xl p-4 text-start hover:border-primary/50 hover:shadow-md transition-all"
               >
-                <h3 className="font-arabic text-foreground text-sm font-medium mb-2 line-clamp-2 leading-relaxed">
-                  {book.title}
-                </h3>
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (book.author_id) onOpenAuthor(book.author_id);
-                  }}
-                  className="text-muted-foreground text-xs hover:text-primary transition-colors truncate block w-full text-start"
+                  onClick={() => onOpenBook(book)}
+                  className="w-full text-start font-arabic text-foreground text-sm font-medium mb-2 line-clamp-2 leading-relaxed hover:text-primary transition-colors"
                 >
-                  {book.author_name || 'بدون مؤلف'}
+                  {book.title}
                 </button>
+                {book.author_id && (
+                  <button
+                    onClick={() => onOpenAuthor(book.author_id)}
+                    className="text-muted-foreground text-xs hover:text-primary transition-colors truncate block w-full text-start"
+                  >
+                    {book.author_name || 'بدون مؤلف'}
+                  </button>
+                )}
+                {!book.author_id && (
+                  <p className="text-muted-foreground text-xs truncate">
+                    {book.author_name || 'بدون مؤلف'}
+                  </p>
+                )}
                 <div className="flex items-center gap-2 mt-2">
                   {book.category_name && (
                     <span className="px-2 py-0.5 bg-primary/10 rounded-full text-primary text-xs">

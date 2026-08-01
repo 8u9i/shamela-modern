@@ -17,6 +17,17 @@ export function UpdateView({ onComplete, onSkip }: UpdateViewProps) {
     check();
   }, []);
 
+  // Offline/network failure must not trap the user on this screen: if the local
+  // library is usable, enter it (updates re-check on every launch).
+  useEffect(() => {
+    if (status !== 'error') return;
+    let cancelled = false;
+    window.api.checkDbStatus().then((s) => {
+      if (!cancelled && s?.ready) onSkip();
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [status]);
+
   useEffect(() => {
     const cleanup = window.api.onUpdateProgress((p: UpdateProgress) => {
       setProgress(p);
@@ -117,11 +128,14 @@ export function UpdateView({ onComplete, onSkip }: UpdateViewProps) {
 
         {status === 'downloading' && (
           <>
-            <div className="text-muted-foreground text-sm mb-4 loading-pulse">
-              {progress?.msg || 'جاري التحديث...'}
+            <div className="text-muted-foreground text-xs mb-2">
+              جاري تحديث المكتبة
+            </div>
+            <div className="text-foreground text-sm font-medium mb-1 loading-pulse min-h-[20px]">
+              {progress?.msg || 'جاري التحميل...'}
             </div>
             {progress && (
-              <div className="text-muted-foreground text-xs mb-3">
+              <div className="text-muted-foreground text-xs mb-3 tabular-nums">
                 {progress.current} / {progress.total}
               </div>
             )}
@@ -133,6 +147,13 @@ export function UpdateView({ onComplete, onSkip }: UpdateViewProps) {
                 />
               )}
             </div>
+            <button
+              onClick={onComplete}
+              className="mt-6 pixel-btn text-sm px-6 py-2 border border-border bg-card text-muted-foreground hover:text-foreground flex items-center gap-2 mx-auto"
+            >
+              <Library className="w-4 h-4" />
+              فتح المكتبة الآن — يستمر التحميل في الخلفية
+            </button>
           </>
         )}
 

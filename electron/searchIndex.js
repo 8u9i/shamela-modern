@@ -21,10 +21,23 @@ const BOOKS_FTS_SQL = `
   );
 `;
 
+// Indexes that must exist on every install (schema only creates them for new
+// databases) — pdf catalog backfill and update installs look up shamela_id.
+const MIGRATION_SQL = `
+  CREATE INDEX IF NOT EXISTS idx_books_shamela ON books(shamela_id);
+  CREATE INDEX IF NOT EXISTS idx_authors_shamela ON authors(shamela_id);
+  CREATE INDEX IF NOT EXISTS idx_categories_shamela ON categories(shamela_id);
+`;
+
 // Creates both FTS tables if missing and syncs the books title/author index.
 // Safe to call on every startup and before update runs.
 function ensureSearchIndex(db) {
   if (!db) return;
+  try {
+    db.exec(MIGRATION_SQL);
+  } catch (e) {
+    console.error('search index migration failed:', e.message);
+  }
   try {
     const def = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='books_fts'").get();
     if (def && def.sql.includes("content='books'")) {
@@ -60,6 +73,24 @@ function countRows(db, table) {
   } catch (e) {
     return 0;
   }
+}
+
+// Replaces the whole title/author index. Row counts don't change when a book
+// is updated in place, so call this after update runs (not just when counts
+// differ). Fast enough at ~5K books to run unconditionally after an update.
+function syncBooksFts(db) {
+  if (!db) return;
+  const rows = db
+    .prepare('SELECT id, title, author_name FROM books')
+    .all();
+  const insert = db.prepare('INSERT INTO books_fts (rowid, title, author_name) VALUES (?, ?, ?)');
+  const tx = db.transaction(() => {
+    db.prepare('DELETE FROM books_fts').run();
+    for (const r of rows) {
+      insert.run(r.id, normalizeForSearch(r.title), normalizeForSearch(r.author_name));
+    }
+  });
+  tx();
 }
 
 // True when the content index lags behind book_content (new books installed,
@@ -113,6 +144,7 @@ function resetContentFts(db) {
 
 module.exports = {
   ensureSearchIndex,
+  syncBooksFts,
   needsContentRebuild,
   buildContentFtsStep,
   indexBookContent,

@@ -58,6 +58,9 @@ const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_books_author ON books(author_id);
   CREATE INDEX IF NOT EXISTS idx_books_category ON books(category_id);
   CREATE INDEX IF NOT EXISTS idx_books_title ON books(title);
+  CREATE INDEX IF NOT EXISTS idx_books_shamela ON books(shamela_id);
+  CREATE INDEX IF NOT EXISTS idx_authors_shamela ON authors(shamela_id);
+  CREATE INDEX IF NOT EXISTS idx_categories_shamela ON categories(shamela_id);
   CREATE INDEX IF NOT EXISTS idx_content_book ON book_content(book_id);
   CREATE INDEX IF NOT EXISTS idx_content_page ON book_content(book_id, page);
   CREATE INDEX IF NOT EXISTS idx_toc_book ON book_toc(book_id);

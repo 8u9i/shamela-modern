@@ -6,12 +6,53 @@ const fs = require('fs');
 const autoUpdater = require('./autoUpdater');
 
 let mainWindow;
+
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
 let db;
 let userDb;
 let servicesDb;
 
 const isDev = process.env.NODE_ENV === 'development';
 const appRoot = path.join(__dirname, '..');
+
+// ============ IPC input guards ============
+// The renderer is context-isolated but is still untrusted input: every IPC
+// handler must coerce/normalize its arguments before touching SQL or fs.
+
+function toInt(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isInteger(n) ? n : fallback;
+}
+
+function toIntIn(value, min, max, fallback) {
+  const n = toInt(value, fallback);
+  return Math.min(max, Math.max(min, n));
+}
+
+function toText(value, maxLen = 1000, fallback = '') {
+  return typeof value === 'string' ? value.slice(0, maxLen) : fallback;
+}
+
+function toIntArray(value, maxLen = 500) {
+  if (!Array.isArray(value)) return [];
+  const out = [];
+  for (const v of value) {
+    const n = Number(v);
+    if (Number.isInteger(n)) out.push(n);
+    if (out.length >= maxLen) break;
+  }
+  return out;
+}
 
 // Local PDF library (dev: the desktop install next to the repo; prod: a writable
 // download cache under userData). Overridable for tests.
@@ -118,9 +159,12 @@ function openUserDatabase() {
 }
 
 function createWindow() {
+  const windowState = require('./windowState').load();
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
+    width: windowState.width,
+    height: windowState.height,
+    x: windowState.x,
+    y: windowState.y,
     minWidth: 800,
     minHeight: 600,
     webPreferences: {
@@ -134,13 +178,61 @@ function createWindow() {
     frame: process.platform === 'darwin' ? false : true,
   });
 
-  if (isDev) {
-    mainWindow.loadURL('http://localhost:5173');
-  } else {
-    mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
-  }
+  // Resilient renderer load: dev (Vite dev server) and prod (local file) both
+  // fail transiently — Vite re-optimizing deps on first run, the Chromium
+  // network service restarting after a cache hiccup, or a hung load. Without a
+  // retry the window stays black until the user closes and reopens it.
+  let loadAttempts = 0;
+  let loadWatchdog = null;
+  const MAX_LOAD_ATTEMPTS = isDev ? 15 : 5;
+  const LOAD_WATCHDOG_MS = 10000;
+
+  const clearWatchdog = () => {
+    if (loadWatchdog) { clearTimeout(loadWatchdog); loadWatchdog = null; }
+  };
+
+  const retryLoad = () => {
+    if (mainWindow.isDestroyed() || loadAttempts >= MAX_LOAD_ATTEMPTS) return;
+    loadAttempts++;
+    clearWatchdog();
+    loadWatchdog = setTimeout(() => {
+      if (!mainWindow.isDestroyed()) scheduleRetry('load timeout');
+    }, LOAD_WATCHDOG_MS);
+    if (isDev) {
+      mainWindow.loadURL('http://localhost:5173');
+    } else {
+      mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
+    }
+  };
+
+  const scheduleRetry = (reason) => {
+    if (mainWindow.isDestroyed() || loadAttempts >= MAX_LOAD_ATTEMPTS) return;
+    console.error(`Renderer load issue (${reason}); retrying ${loadAttempts}/${MAX_LOAD_ATTEMPTS}`);
+    setTimeout(() => { if (!mainWindow.isDestroyed()) retryLoad(); }, 1000);
+  };
+
+  mainWindow.webContents.on('did-fail-load', (_e, errorCode, errorDescription, validatedURL, isMainFrame) => {
+    // Ignore subframes and aborted navigations; only retry main-frame failures.
+    if (!isMainFrame || errorCode === -3) return;
+    scheduleRetry(errorDescription);
+  });
+  mainWindow.webContents.on('did-finish-load', () => {
+    clearWatchdog();
+    loadAttempts = 0;
+  });
+  mainWindow.webContents.on('render-process-gone', (_e, details) => {
+    if (details.reason === 'clean-exit') return;
+    console.error('Renderer process gone:', details.reason, details.exitCode);
+    scheduleRetry(`renderer ${details.reason}`);
+  });
+
+  retryLoad();
+
+  if (windowState.isMaximized) mainWindow.maximize();
+  require('./windowState').track(mainWindow);
 
   mainWindow.on('closed', () => {
+    clearWatchdog();
     mainWindow = null;
   });
 }
@@ -184,15 +276,17 @@ function getSectionChildIds(categoryId) {
   return [categoryId];
 }
 
-ipcMain.handle('db:getBooks', (event, { categoryId, authorId, search, page = 0, limit = 50 }) => {
+ipcMain.handle('db:getBooks', (event, { categoryId, authorId, search, page = 0, limit = 50 } = {}) => {
   if (!db) return { books: [], total: 0 };
 
   let where = [];
   let params = [];
 
   if (categoryId) {
+    const catId = toInt(categoryId);
+    if (!catId) return { books: [], total: 0 };
     const catIds = [];
-    const queue = [categoryId];
+    const queue = [catId];
     const seen = new Set();
     while (queue.length > 0) {
       const id = queue.pop();
@@ -209,89 +303,109 @@ ipcMain.handle('db:getBooks', (event, { categoryId, authorId, search, page = 0, 
   }
   if (authorId) {
     where.push('author_id = ?');
-    params.push(authorId);
+    params.push(toInt(authorId));
   }
   if (search) {
     where.push('id IN (SELECT rowid FROM books_fts WHERE books_fts MATCH ?)');
-    params.push(search);
+    params.push(toText(search, 200));
   }
 
+  const safePage = toIntIn(page, 0, 100000, 0);
+  const safeLimit = toIntIn(limit, 1, 200, 50);
   const whereClause = where.length > 0 ? 'WHERE ' + where.join(' AND ') : '';
   const total = db.prepare(`SELECT COUNT(*) as count FROM books ${whereClause}`).get(...params).count;
-  const books = db.prepare(`SELECT * FROM books ${whereClause} ORDER BY title LIMIT ? OFFSET ?`).all(...params, limit, page * limit);
+  const books = db.prepare(`SELECT * FROM books ${whereClause} ORDER BY title LIMIT ? OFFSET ?`).all(...params, safeLimit, safePage * safeLimit);
 
-  return { books, total, page, limit };
+  return { books, total, page: safePage, limit: safeLimit };
 });
 
 ipcMain.handle('db:getBook', (event, bookId) => {
   if (!db) return null;
-  return db.prepare('SELECT * FROM books WHERE id = ?').get(bookId);
+  const id = toInt(bookId);
+  if (!id) return null;
+  return db.prepare('SELECT * FROM books WHERE id = ?').get(id);
 });
 
-ipcMain.handle('db:getBookContent', (event, { bookId, page = 1 }) => {
+ipcMain.handle('db:getBookContent', (event, { bookId, page = 1 } = {}) => {
   if (!db) return { content: [], totalPages: 0, currentPage: 1 };
-  const pages = db.prepare('SELECT DISTINCT page FROM book_content WHERE book_id = ? ORDER BY page').all(bookId).map(r => r.page);
+  const id = toInt(bookId);
+  if (!id) return { content: [], totalPages: 0, currentPage: 1 };
+  const safePage = toInt(page, 1);
+  const pages = db.prepare('SELECT DISTINCT page FROM book_content WHERE book_id = ? ORDER BY page').all(id).map(r => r.page);
   const totalPages = pages.length;
-  const targetPage = pages.includes(page) ? page : (pages[0] || 1);
+  const targetPage = pages.includes(safePage) ? safePage : (pages[0] || 1);
   const content = db.prepare(
     'SELECT * FROM book_content WHERE book_id = ? AND page = ? ORDER BY part'
-  ).all(bookId, targetPage);
+  ).all(id, targetPage);
   return { content, totalPages, currentPage: targetPage };
 });
 
-ipcMain.handle('db:getBookContentByPage', (event, { bookId, shamelaPage }) => {
+ipcMain.handle('db:getBookContentByPage', (event, { bookId, shamelaPage } = {}) => {
   if (!db) return { content: [], totalPages: 0, currentPage: 1 };
-  const pages = db.prepare('SELECT DISTINCT page FROM book_content WHERE book_id = ? ORDER BY page').all(bookId).map(r => r.page);
+  const id = toInt(bookId);
+  if (!id) return { content: [], totalPages: 0, currentPage: 1 };
+  const pages = db.prepare('SELECT DISTINCT page FROM book_content WHERE book_id = ? ORDER BY page').all(id).map(r => r.page);
   const totalPages = pages.length;
-  const targetPage = pages.includes(shamelaPage) ? shamelaPage : (pages[0] || 1);
+  const targetPage = pages.includes(toInt(shamelaPage, 1)) ? toInt(shamelaPage, 1) : (pages[0] || 1);
   const content = db.prepare(
     'SELECT * FROM book_content WHERE book_id = ? AND page = ? ORDER BY part'
-  ).all(bookId, targetPage);
+  ).all(id, targetPage);
   return { content, totalPages, currentPage: targetPage };
 });
 
 ipcMain.handle('db:getBookToc', (event, bookId) => {
   if (!db) return [];
-  return db.prepare('SELECT * FROM book_toc WHERE book_id = ? ORDER BY page, level').all(bookId);
+  const id = toInt(bookId);
+  if (!id) return [];
+  return db.prepare('SELECT * FROM book_toc WHERE book_id = ? ORDER BY page, level').all(id);
 });
 
-ipcMain.handle('db:getAuthors', (event, { page = 0, limit = 50, search = '' }) => {
+ipcMain.handle('db:getAuthors', (event, { page = 0, limit = 50, search = '' } = {}) => {
   if (!db) return { authors: [], total: 0 };
-  const offset = page * limit;
-  if (search) {
-    const total = db.prepare("SELECT COUNT(*) as count FROM authors WHERE name LIKE ?").get(`%${search}%`).count;
+  const safePage = toIntIn(page, 0, 100000, 0);
+  const safeLimit = toIntIn(limit, 1, 200, 50);
+  const offset = safePage * safeLimit;
+  const term = toText(search, 200).replace(/[%_\\]/g, '\\$&');
+  if (term) {
+    const total = db.prepare("SELECT COUNT(*) as count FROM authors WHERE name LIKE ? ESCAPE '\\'").get(`%${term}%`).count;
     const authors = db.prepare(`
       SELECT a.*, (SELECT COUNT(*) FROM books WHERE author_id = a.id) as book_count
-      FROM authors a WHERE a.name LIKE ?
+      FROM authors a WHERE a.name LIKE ? ESCAPE '\\'
       ORDER BY a.name LIMIT ? OFFSET ?
-    `).all(`%${search}%`, limit, offset);
-    return { authors, total };
+    `).all(`%${term}%`, safeLimit, offset);
+    return { authors, total, page: safePage, limit: safeLimit };
   }
   const total = db.prepare('SELECT COUNT(*) as count FROM authors').get().count;
   const authors = db.prepare(`
     SELECT a.*, (SELECT COUNT(*) FROM books WHERE author_id = a.id) as book_count
     FROM authors a
     ORDER BY a.name LIMIT ? OFFSET ?
-  `).all(limit, offset);
-  return { authors, total };
+  `).all(safeLimit, offset);
+  return { authors, total, page: safePage, limit: safeLimit };
 });
 
 ipcMain.handle('db:getAuthor', (event, authorId) => {
   if (!db) return null;
-  return db.prepare('SELECT * FROM authors WHERE id = ?').get(authorId);
+  const id = toInt(authorId);
+  if (!id) return null;
+  return db.prepare('SELECT * FROM authors WHERE id = ?').get(id);
 });
 
 ipcMain.handle('db:getAuthorBooks', (event, authorId) => {
   if (!db) return [];
-  return db.prepare('SELECT * FROM books WHERE author_id = ? ORDER BY title').all(authorId);
+  const id = toInt(authorId);
+  if (!id) return [];
+  return db.prepare('SELECT * FROM books WHERE author_id = ? ORDER BY title').all(id);
 });
 
-ipcMain.handle('db:search', (event, { query, limit = 50 }) => {
+ipcMain.handle('db:search', (event, { query, limit = 50 } = {}) => {
   if (!db || !query) return [];
+  const safeLimit = toIntIn(limit, 1, 200, 50);
+  const safeQuery = toText(query, 200);
 
   try {
     const { toFtsQuery } = require('./arabicNormalize');
-    const ftsQuery = toFtsQuery(query);
+    const ftsQuery = toFtsQuery(safeQuery);
     if (!ftsQuery) return [];
     const results = db.prepare(`
       SELECT b.*, snippet(books_fts, 0, '<mark>', '</mark>', '...', 30) as snippet
@@ -299,7 +413,7 @@ ipcMain.handle('db:search', (event, { query, limit = 50 }) => {
       JOIN books b ON books_fts.rowid = b.id
       WHERE books_fts MATCH ?
       LIMIT ?
-    `).all(ftsQuery, limit);
+    `).all(ftsQuery, safeLimit);
     return results;
   } catch (e) {
     console.error('Search error:', e);
@@ -307,11 +421,14 @@ ipcMain.handle('db:search', (event, { query, limit = 50 }) => {
   }
 });
 
-ipcMain.handle('db:searchContent', (event, { query, bookId, limit = 50 }) => {
+ipcMain.handle('db:searchContent', (event, { query, bookId, limit = 50 } = {}) => {
   if (!db || !query) return [];
+  const safeLimit = toIntIn(limit, 1, 200, 50);
+  const safeQuery = toText(query, 200);
+  const safeBookId = toInt(bookId, 0) || null;
 
   const { toFtsQuery } = require('./arabicNormalize');
-  const ftsQuery = toFtsQuery(query);
+  const ftsQuery = toFtsQuery(safeQuery);
 
   try {
     if (!ftsQuery) throw new Error('empty fts query');
@@ -322,7 +439,7 @@ ipcMain.handle('db:searchContent', (event, { query, bookId, limit = 50 }) => {
     if (!hasFts) throw new Error('book_content_fts missing');
 
     let sql = `
-      SELECT bc.id, bc.book_id, bc.page, bc.content,
+      SELECT bc.id, bc.book_id, bc.page, substr(bc.content, 1, 320) as content,
              b.title as book_title, b.author_name,
              snippet(book_content_fts, 2, '<mark>', '</mark>', '...', 40) as snippet
       FROM book_content_fts
@@ -331,30 +448,31 @@ ipcMain.handle('db:searchContent', (event, { query, bookId, limit = 50 }) => {
       WHERE book_content_fts MATCH ?
     `;
     const params = [ftsQuery];
-    if (bookId) {
+    if (safeBookId) {
       sql += ' AND bc.book_id = ?';
-      params.push(bookId);
+      params.push(safeBookId);
     }
     sql += ' LIMIT ?';
-    params.push(limit);
+    params.push(safeLimit);
 
     return db.prepare(sql).all(...params);
   } catch (e) {
     // FTS index not available yet (pre-backfill DB): fall back to LIKE scan.
     try {
       let sql = `
-        SELECT bc.*, b.title as book_title, b.author_name, NULL as snippet
+        SELECT bc.id, bc.book_id, bc.page, substr(bc.content, 1, 320) as content,
+               b.title as book_title, b.author_name, NULL as snippet
         FROM book_content bc
         JOIN books b ON bc.book_id = b.id
         WHERE bc.content LIKE ?
       `;
-      const params = [`%${query}%`];
-      if (bookId) {
+      const params = [`%${safeQuery}%`];
+      if (safeBookId) {
         sql += ' AND bc.book_id = ?';
-        params.push(bookId);
+        params.push(safeBookId);
       }
       sql += ' LIMIT ?';
-      params.push(limit);
+      params.push(safeLimit);
       return db.prepare(sql).all(...params);
     } catch (e2) {
       console.error('Content search error:', e2);
@@ -368,74 +486,37 @@ ipcMain.handle('db:getRecentBooks', () => {
   return db.prepare('SELECT * FROM books WHERE has_content = 1 ORDER BY RANDOM() LIMIT 20').all();
 });
 
-const pdfDownloadsInFlight = new Map();
-
-// Canonical destination under PDF_DIR for a catalog relative path (no existence check).
-function pdfDestFor(relativePath) {
-  if (!relativePath) return null;
-  const pdfDirResolved = path.resolve(getPdfDir());
-  const normalized = String(relativePath)
-    .replace(/\\/g, path.sep)
-    .replace(/^Rel:/, '')
-    .replace(/^pdf[/\\]/, '');
-  const fullPath = path.resolve(path.join(pdfDirResolved, normalized));
-  if (!fullPath.startsWith(pdfDirResolved + path.sep) && fullPath !== pdfDirResolved) return null;
-  return fullPath;
-}
-
-function resolveInPdfDir(relativePath) {
-  const fullPath = pdfDestFor(relativePath);
-  if (fullPath && fs.existsSync(fullPath)) return fullPath;
-  return null;
-}
-
-async function ensurePdfDownloaded(relativePath) {
-  const entry = require('./pdfCatalog').getEntryByRel(relativePath);
-  if (!entry || !entry.url) return null;
-
-  if (pdfDownloadsInFlight.has(entry.rel)) {
-    try { await pdfDownloadsInFlight.get(entry.rel); } catch (e) {}
-    const existing = pdfDestFor(entry.rel);
-    if (existing && fs.existsSync(existing)) return existing;
-    return null;
-  }
-
-  const destPath = pdfDestFor(entry.rel);
-  if (!destPath) return null;
-  if (fs.existsSync(destPath)) return destPath;
-
-  const promise = (async () => {
-    try {
-      const { downloadFile } = require('./update');
-      fs.mkdirSync(path.dirname(destPath), { recursive: true });
-      const base = process.env.SHAMELA_API_BASE || 'https://eshamila.net';
-      await downloadFile(`${base}/${entry.url}`, destPath);
-      if (!fs.existsSync(destPath) || fs.statSync(destPath).size === 0) {
-        try { fs.unlinkSync(destPath); } catch (e) {}
-        return null;
-      }
-      return destPath;
-    } catch (e) {
-      try { fs.unlinkSync(destPath); } catch (err) {}
-      console.error(`PDF download failed for ${entry.rel}:`, e.message);
-      return null;
-    }
-  })();
-
-  pdfDownloadsInFlight.set(entry.rel, promise);
-  try {
-    return await promise;
-  } finally {
-    pdfDownloadsInFlight.delete(entry.rel);
-  }
-}
+const pdfDownloader = require('./pdfDownloader');
 
 ipcMain.handle('getPdfPath', async (event, relativePath) => {
-  if (!relativePath) return null;
-  const localPath = resolveInPdfDir(relativePath);
+  const rel = toText(relativePath, 500);
+  if (!rel) return null;
+  const localPath = pdfDownloader.resolveInPdfDir(rel);
   if (localPath) return localPath;
-  return ensurePdfDownloaded(relativePath);
+  return pdfDownloader.ensurePdfDownloaded(rel);
 });
+
+// ============ Bulk PDF download (full offline library) ============
+
+ipcMain.handle('pdf:downloadAll', async () => {
+  return pdfDownloader.downloadAll({
+    concurrency: 4,
+    onProgress: (p) => {
+      if (mainWindow && !mainWindow.webContents.isDestroyed()) {
+        mainWindow.webContents.send('pdf:downloadProgress', p);
+      }
+      if (p.type === 'progress' && p.total > 0) {
+        mainWindow?.setProgressBar(Math.min(1, p.downloaded / p.total));
+      } else if (p.type === 'done' || p.type === 'stopped') {
+        mainWindow?.setProgressBar(-1);
+      }
+    },
+  });
+});
+
+ipcMain.handle('pdf:stopDownload', () => pdfDownloader.requestStop());
+
+ipcMain.handle('pdf:getState', () => pdfDownloader.getState());
 
 // ============ Full-text content index ============
 
@@ -543,8 +624,9 @@ ipcMain.handle('db:startUpdate', async (event, { bookIds } = {}) => {
     setupUpdaterPaths();
     const updater = require('./update');
     const result = await updater.checkForUpdates();
-    const toInstall = bookIds
-      ? [...result.newBooks, ...result.updatedBooks].filter(b => bookIds.includes(Number(b.id)))
+    const requested = toIntArray(bookIds, 500);
+    const toInstall = requested.length
+      ? [...result.newBooks, ...result.updatedBooks].filter(b => requested.includes(Number(b.id)))
       : [...result.newBooks, ...result.updatedBooks];
 
     if (toInstall.length === 0) {
@@ -557,6 +639,13 @@ ipcMain.handle('db:startUpdate', async (event, { bookIds } = {}) => {
       progress = { msg, current, total };
       if (mainWindow && !mainWindow.webContents.isDestroyed()) {
         mainWindow.webContents.send('update:progress', progress);
+      }
+      if (mainWindow) {
+        if (msg === 'اكتمل التحديث') {
+          mainWindow.setProgressBar(-1);
+        } else if (total > 0) {
+          mainWindow.setProgressBar(Math.min(1, current / total));
+        }
       }
     });
 
@@ -605,12 +694,14 @@ ipcMain.handle('app:getInstallDirectory', () => {
 
 // ============ User Data IPC Handlers ============
 
-ipcMain.handle('db:addHistory', (event, { bookId, bookTitle, authorName, page = 0 }) => {
+ipcMain.handle('db:addHistory', (event, { bookId, bookTitle, authorName, page = 0 } = {}) => {
   if (!userDb || !bookId) return null;
+  const id = toInt(bookId);
+  if (!id) return null;
   userDb.prepare(`
     INSERT INTO history (book_id, book_title, author_name, page, visited_at)
     VALUES (?, ?, ?, ?, datetime('now'))
-  `).run(bookId, bookTitle, authorName, page);
+  `).run(id, toText(bookTitle, 300), toText(authorName, 300), toIntIn(page, 0, 100000, 0));
   // Keep only last 200 entries
   userDb.prepare('DELETE FROM history WHERE id NOT IN (SELECT id FROM history ORDER BY visited_at DESC LIMIT 200)').run();
   return true;
@@ -618,7 +709,8 @@ ipcMain.handle('db:addHistory', (event, { bookId, bookTitle, authorName, page = 
 
 ipcMain.handle('db:getHistory', (event, { limit = 50 } = {}) => {
   if (!userDb) return [];
-  return userDb.prepare('SELECT * FROM history ORDER BY visited_at DESC LIMIT ?').all(limit);
+  const safeLimit = toIntIn(limit, 1, 500, 50);
+  return userDb.prepare('SELECT * FROM history ORDER BY visited_at DESC LIMIT ?').all(safeLimit);
 });
 
 ipcMain.handle('db:clearHistory', () => {
@@ -629,22 +721,27 @@ ipcMain.handle('db:clearHistory', () => {
 
 ipcMain.handle('db:deleteHistoryItem', (event, id) => {
   if (!userDb) return false;
-  userDb.prepare('DELETE FROM history WHERE id = ?').run(id);
+  const safeId = toInt(id);
+  if (!safeId) return false;
+  userDb.prepare('DELETE FROM history WHERE id = ?').run(safeId);
   return true;
 });
 
-ipcMain.handle('db:addBookmark', (event, { bookId, bookTitle, authorName, page = 0, title }) => {
+ipcMain.handle('db:addBookmark', (event, { bookId, bookTitle, authorName, page = 0, title } = {}) => {
   if (!userDb || !bookId) return null;
+  const id = toInt(bookId);
+  if (!id) return null;
   userDb.prepare(`
     INSERT INTO bookmarks (book_id, book_title, author_name, page, title, created_at)
     VALUES (?, ?, ?, ?, ?, datetime('now'))
-  `).run(bookId, bookTitle, authorName, page, title);
+  `).run(id, toText(bookTitle, 300), toText(authorName, 300), toIntIn(page, 0, 100000, 0), toText(title, 300));
   return true;
 });
 
 ipcMain.handle('db:getBookmarks', (event, { limit = 100 } = {}) => {
   if (!userDb) return [];
-  return userDb.prepare('SELECT * FROM bookmarks ORDER BY created_at DESC LIMIT ?').all(limit);
+  const safeLimit = toIntIn(limit, 1, 500, 100);
+  return userDb.prepare('SELECT * FROM bookmarks ORDER BY created_at DESC LIMIT ?').all(safeLimit);
 });
 
 ipcMain.handle('db:deleteBookmark', (event, id) => {
@@ -655,28 +752,35 @@ ipcMain.handle('db:deleteBookmark', (event, id) => {
 
 ipcMain.handle('db:getBookmarksForBook', (event, bookId) => {
   if (!userDb) return [];
-  return userDb.prepare('SELECT * FROM bookmarks WHERE book_id = ? ORDER BY created_at DESC').all(bookId);
+  const id = toInt(bookId);
+  if (!id) return [];
+  return userDb.prepare('SELECT * FROM bookmarks WHERE book_id = ? ORDER BY created_at DESC').all(id);
 });
 
 // ============ Notes IPC Handlers ============
 
-ipcMain.handle('db:addNote', (event, { bookId, bookTitle, page = 0, content }) => {
+ipcMain.handle('db:addNote', (event, { bookId, bookTitle, page = 0, content } = {}) => {
   if (!userDb || !bookId || !content) return null;
+  const id = toInt(bookId);
+  if (!id) return null;
   userDb.prepare(`
     INSERT INTO notes (book_id, book_title, page, content, created_at)
     VALUES (?, ?, ?, ?, datetime('now'))
-  `).run(bookId, bookTitle, page, content);
+  `).run(id, toText(bookTitle, 300), toIntIn(page, 0, 100000, 0), toText(content, 20000));
   return true;
 });
 
 ipcMain.handle('db:getNotes', (event, { limit = 100 } = {}) => {
   if (!userDb) return [];
-  return userDb.prepare('SELECT * FROM notes ORDER BY created_at DESC LIMIT ?').all(limit);
+  const safeLimit = toIntIn(limit, 1, 500, 100);
+  return userDb.prepare('SELECT * FROM notes ORDER BY created_at DESC LIMIT ?').all(safeLimit);
 });
 
 ipcMain.handle('db:deleteNote', (event, id) => {
   if (!userDb) return false;
-  userDb.prepare('DELETE FROM notes WHERE id = ?').run(id);
+  const safeId = toInt(id);
+  if (!safeId) return false;
+  userDb.prepare('DELETE FROM notes WHERE id = ?').run(safeId);
   return true;
 });
 
@@ -735,12 +839,18 @@ ipcMain.handle('db:findDuplicateAuthors', () => {
   });
 });
 
-ipcMain.handle('db:mergeDuplicateAuthors', async (event, { primaries }) => {
+ipcMain.handle('db:mergeDuplicateAuthors', async (event, { primaries } = {}) => {
   if (!servicesDb) return { success: false, error: 'Services database not available' };
+  if (!Array.isArray(primaries) || primaries.length === 0) return { success: false, error: 'لا توجد مجموعات للمعالجة' };
   // primaries: array of { primaryId: number, duplicateIds: number[] }
   const results = { merged: 0, deleted: 0, errors: [] };
   const transaction = servicesDb.transaction(() => {
-    for (const group of primaries) {
+    for (const raw of primaries.slice(0, 200)) {
+      const group = {
+        primaryId: toInt(raw?.primaryId, 0),
+        duplicateIds: toIntArray(raw?.duplicateIds, 200).filter((id) => id !== toInt(raw?.primaryId, 0)),
+      };
+      if (!group.primaryId) continue;
       for (const dupId of group.duplicateIds) {
         try {
           // Reassign books from duplicate author to primary author
@@ -763,13 +873,13 @@ ipcMain.handle('db:mergeDuplicateAuthors', async (event, { primaries }) => {
   }
 });
 
-ipcMain.handle('exportText', async (event, { content, defaultName = 'export.txt' }) => {
+ipcMain.handle('exportText', async (event, { content, defaultName = 'export.txt' } = {}) => {
   const result = await dialog.showSaveDialog(mainWindow, {
-    defaultPath: defaultName,
+    defaultPath: toText(defaultName, 200) || 'export.txt',
     filters: [{ name: 'ملفات نصية', extensions: ['txt'] }],
   });
   if (result.canceled || !result.filePath) return false;
-  fs.writeFileSync(result.filePath, content, 'utf-8');
+  fs.writeFileSync(result.filePath, toText(content, 500000, ''), 'utf-8');
   return true;
 });
 
@@ -830,6 +940,8 @@ app.whenReady().then(() => {
     console.error('Failed to init search index:', e.message);
   }
 
+  pdfDownloader.setPdfDir(getPdfDir());
+
   const pdfDir = (() => { try { return fs.realpathSync(getPdfDir()); } catch { return null; } })();
 
   protocol.handle('shamela-pdf', (request) => {
@@ -837,7 +949,7 @@ app.whenReady().then(() => {
       if (!pdfDir) return new Response('Not Found', { status: 404 });
       const url = new URL(request.url);
       const relativePath = decodeURIComponent(url.pathname.replace(/^\//, ''));
-      const dest = pdfDestFor(relativePath);
+      const dest = pdfDownloader.pdfDestFor(relativePath);
       if (!dest) return new Response('Forbidden', { status: 403 });
       const resolved = fs.realpathSync(dest);
       if (resolved !== pdfDir && !resolved.startsWith(pdfDir + path.sep)) {

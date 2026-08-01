@@ -8,8 +8,8 @@
 [![Platform](https://img.shields.io/badge/منصة-ويندوز%20%7C%20ماك%20%7C%20لينكس-162e24?style=flat-square)]()
 [![Build Status](https://img.shields.io/github/actions/workflow/status/8u9i/shamela-modern/release.yml?style=flat-square&label=CI&color=2a4a3a)](https://github.com/8u9i/shamela-modern/actions)
 [![License](https://img.shields.io/badge/الرخصة-MIT-07130e?style=flat-square)](LICENSE)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white)]()
-[![Electron](https://img.shields.io/badge/Electron-33-47848F?style=flat-square&logo=electron&logoColor=white)]()
+[![TypeScript](https://img.shields.io/badge/TypeScript-7.0-3178C6?style=flat-square&logo=typescript&logoColor=white)]()
+[![Electron](https://img.shields.io/badge/Electron-43-47848F?style=flat-square&logo=electron&logoColor=white)]()
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=white)]()
 
 **⬇ [حمّل أحدث إصدار](https://github.com/8u9i/shamela-modern/releases/latest)**
@@ -30,12 +30,13 @@
 | 📖 **أكثر من 2700 كتاب** | مكتبة إباضية كاملة في التفسير، الحديث، الفقه، العقيدة، التاريخ، والأدب |
 | 🔍 **بحث نصي كامل** | ابحث في 688,000+ صفحة بشكل فوري مع إبراز النتائج |
 | 📄 **قارئ PDF** | اقرأ الكتب المصورة مباشرة داخل التطبيق |
+| ⬇️ **تنزيل PDF دفعة واحدة** | حمّل جميع نسخ PDF (2,010 ملفاً) مرة واحدة للاستخدام الكامل بدون إنترنت، مع الاستئناف بعد إعادة التشغيل |
 | 🔄 **تحديث تلقائي** | يتحقق من تحديثات التطبيق ويُثبّتها من الداخل |
 | 📡 **تحديث المحتوى** | يحمل الكتب الجديدة من خادم التحديثات |
 | 🔖 **علامات وملاحظات** | احفظ تقدمك وأضف ملاحظاتك على الكتب |
 | 🛠 **خدمات دمج المؤلفين** | أداة لإصلاح التكرارات في قاعدة البيانات |
 | 🌙 **تصميم عتيق** | واجهة pixel-art داكنة مريحة للعين |
-| 🌐 **بدون إنترنت** | كل شيء يعمل محلياً بعد التثبيت |
+| 🌐 **بدون إنترنت** | كل شيء يعمل محلياً بعد التثبيت — بما فيها الخطوط والـ PDF بعد تنزيلها |
 
 ---
 
@@ -43,38 +44,26 @@
 
 | النظام | الملف | الحجم التقريبي |
 |--------|-------|:-------:|
-| 🪟 ويندوز | [`Al-Maktaba-Al-Shamela-Setup-1.0.2.exe`](https://github.com/8u9i/shamela-modern/releases/latest) | ~80 MB |
-| 🍎 ماك (Apple Silicon) | [`Al-Maktaba-Al-Shamela-1.0.2-arm64.dmg`](https://github.com/8u9i/shamela-modern/releases/latest) | ~100 MB |
-| 🐧 لينكس (AppImage) | [`Al-Maktaba-Al-Shamela-1.0.2.AppImage`](https://github.com/8u9i/shamela-modern/releases/latest) | ~110 MB |
-| 🐧 لينكس (deb) | [`shamela-modern_1.0.2_amd64.deb`](https://github.com/8u9i/shamela-modern/releases/latest) | ~76 MB |
+| 🪟 ويندوز | [`Al-Maktaba-Al-Shamela-Setup-*.exe`](https://github.com/8u9i/shamela-modern/releases/latest) | ~80 MB |
+| 🍎 ماك (Apple Silicon) | [`Al-Maktaba-Al-Shamela-*-arm64.dmg`](https://github.com/8u9i/shamela-modern/releases/latest) | ~100 MB |
+| 🐧 لينكس (AppImage) | [`Al-Maktaba-Al-Shamela-*.AppImage`](https://github.com/8u9i/shamela-modern/releases/latest) | ~110 MB |
+| 🐧 لينكس (deb) | [`Al-Maktaba-Al-Shamela-*.deb`](https://github.com/8u9i/shamela-modern/releases/latest) | ~76 MB |
 
-> 💡 بعد تثبيت الإصدار الأول، سيتحقق التطبيق تلقائياً من التحديثات الجديدة ويقوم بتحديث نفسه.
+> 💡 أسماء الملفات تتضمن رقم الإصدار — اختر أحدث إصدار من صفحة الإصدارات. بعد تثبيت الإصدار الأول، سيتحقق التطبيق تلقائياً من التحديثات الجديدة ويقوم بتحديث نفسه.
 
 ---
 
-## 📥 تحميل قاعدة البيانات
+## 📥 قاعدة البيانات
 
-التطبيق يحتاج إلى قاعدة بيانات `shamela.db` (2.1 GB) لتشغيل المكتبة. الإصدارات المبنية عبر CI لا تحتوي على قاعدة البيانات الفعلية.
+قاعدة البيانات تُبنى **تلقائياً عند أول تشغيل** عبر API الموقع الرسمي (eshamila.net) — لا حاجة لتحميل ملف قاعدة بيانات يدوياً. يحتاج التثبيت الأول إلى اتصال بالإنترنت لتحميل الكتب، ثم يعمل التطبيق محلياً بالكامل.
 
-**للحصول على قاعدة البيانات:**
-
-1. حمّل الملف من رابط التحميل المرفق مع الإصدار (إن وجد)
-2. أو استخدم أداة التحويل من البيانات الأصلية: `npm run convert`
-3. ضع الملف في أحد المسارات التالية:
+بعد أول تشغيل، تُخزن قاعدة البيانات في مجلد بيانات التطبيق:
 
 | النظام | المسار |
 |--------|-------|
 | 🪟 ويندوز | `%APPDATA%/Al-Maktaba Al-Shamela/data/` |
 | 🍎 ماك | `~/Library/Application Support/Al-Maktaba Al-Shamela/data/` |
 | 🐧 لينكس | `~/.config/Al-Maktaba Al-Shamela/data/` |
-
-أو في مجلد `resources` داخل مجلد التثبيت:
-
-| النظام | المسار |
-|--------|-------|
-| 🪟 ويندوز | `C:\Program Files\Al-Maktaba Al-Shamela\resources\shamela.db` |
-| 🍎 ماك | `Al-Maktaba Al-Shamela.app/Contents/Resources/shamela.db` |
-| 🐧 لينكس | `/opt/Al-Maktaba Al-Shamela/resources/shamela.db` |
 
 ---
 
@@ -177,6 +166,7 @@ npm run dev
 ```bash
 npm run e2e          # بناء + اختبارات
 npm run e2e:dev      # اختبارات فقط (دون بناء)
+npm run check:size   # التحقق من حجم الحزمة (الميزانية)
 ```
 
 ### 📦 الإصدار الكامل (مع قاعدة البيانات)
@@ -195,9 +185,13 @@ shamela-modern/
 │   ├── main.js        # النقطة الرئيسية و IPC handlers
 │   ├── preload.js     # واجهة الربط مع الواجهة
 │   ├── autoUpdater.js # تحديث التطبيق التلقائي
-│   └── update.js      # تحديث محتوى الكتب
+│   ├── update.js      # تحديث محتوى الكتب
+│   ├── pdfDownloader.js # تنزيل كتب PDF دفعة واحدة
+│   ├── windowState.js # حفظ حالة النافذة
+│   └── searchIndex.js # فهرس البحث FTS5
 ├── src/               # واجهة React
 │   ├── components/    # مكونات الواجهة
+│   ├── lib/           # أدوات مساعدة
 │   ├── styles/        # أنماط CSS
 │   └── types/         # تعريفات TypeScript
 ├── assets/            # أيقونات التطبيق
@@ -213,14 +207,14 @@ shamela-modern/
 
 | التقنية | الغرض |
 |---------|-------|
-| [Electron 33](https://www.electronjs.org/) | إطار التطبيق |
+| [Electron 43](https://www.electronjs.org/) | إطار التطبيق |
 | [React 19](https://react.dev/) | واجهة المستخدم |
-| [TypeScript 5.9](https://www.typescriptlang.org/) | لغة البرمجة |
-| [Tailwind CSS 3](https://tailwindcss.com/) | التنسيق |
+| [TypeScript 7.0](https://www.typescriptlang.org/) | لغة البرمجة |
+| [Tailwind CSS 4](https://tailwindcss.com/) | التنسيق |
 | [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) | قاعدة البيانات |
 | [electron-updater](https://github.com/electron-userland/electron-builder) | التحديث التلقائي |
 | [electron-builder](https://www.electron.build/) | التعبئة والتوزيع |
-| [Vite 6](https://vitejs.dev/) | بناء الواجهة |
+| [Vite 8](https://vitejs.dev/) | بناء الواجهة |
 | [Playwright](https://playwright.dev/) | اختبارات E2E |
 
 ---

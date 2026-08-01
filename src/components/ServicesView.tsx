@@ -3,6 +3,7 @@ import {
   Wrench, Star, Trash2, Loader2, CheckCircle2, AlertTriangle, CheckSquare, Square
 } from 'lucide-react';
 import { DuplicateAuthorGroup } from '../types';
+import { PdfDownloadManager } from './PdfDownloadManager';
 
 export function ServicesView() {
   const [dupGroups, setDupGroups] = useState<DuplicateAuthorGroup[]>([]);
@@ -107,7 +108,18 @@ export function ServicesView() {
           خدمات
         </h2>
         <p className="text-sm text-muted-foreground mt-1">
-          إصلاح المؤلفين المكررين وتوحيد الكتب
+          تحميل ملفات PDF وإصلاح المؤلفين المكررين وتوحيد الكتب
+        </p>
+      </div>
+
+      <PdfDownloadManager />
+
+      <div className="mb-4">
+        <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
+          دمج المؤلفين المكررين
+        </h3>
+        <p className="text-sm text-muted-foreground mt-0.5 mb-3">
+          ابحث عن المؤلفين المكررين ووحّد كتبهم تحت سجل واحد
         </p>
       </div>
 

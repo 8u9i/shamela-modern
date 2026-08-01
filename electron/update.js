@@ -70,9 +70,27 @@ function fetchJson(url) {
   });
 }
 
+// Downloads to destPath atomically: writes to destPath + '.part' and renames on
+// success, so a killed/crashed process never leaves a corrupt file at the final
+// path that callers would treat as valid.
 function downloadFile(url, destPath) {
+  const partPath = destPath + '.part';
   return new Promise((resolve, reject) => {
-    const file = fs.createWriteStream(destPath);
+    try { if (fs.existsSync(partPath)) fs.unlinkSync(partPath); } catch (e) {}
+    const file = fs.createWriteStream(partPath);
+    const finalize = () => {
+      file.close();
+      try {
+        fs.renameSync(partPath, destPath);
+        resolve();
+      } catch (e) {
+        reject(e);
+      }
+    };
+    const cleanup = () => {
+      try { file.close(); } catch (e) {}
+      try { if (fs.existsSync(partPath)) fs.unlinkSync(partPath); } catch (e) {}
+    };
     const get = (u, redirectsLeft) => {
       const isHttps = u.startsWith('https:');
       const req = getTransport(u).get(u, { headers: { 'User-Agent': 'Shamela-Modern/1.0' }, agent: isHttps ? httpAgent : undefined }, (res) => {
@@ -82,16 +100,14 @@ function downloadFile(url, destPath) {
           return;
         }
         if (res.statusCode !== 200) {
-          file.close();
-          fs.unlinkSync(destPath);
+          cleanup();
           reject(new Error(`HTTP ${res.statusCode} for ${url}`));
           return;
         }
         res.pipe(file);
-        file.on('finish', () => { file.close(); resolve(); });
+        file.on('finish', finalize);
       }).on('error', (err) => {
-        file.close();
-        if (fs.existsSync(destPath)) fs.unlinkSync(destPath);
+        cleanup();
         reject(err);
       });
       req.setTimeout(REQUEST_TIMEOUT_MS, () => {
@@ -383,16 +399,40 @@ async function runUpdates(booksToInstall, onProgress) {
   ensureTmpDir();
   const writeDb = new Database(getDbPath());
   writeDb.pragma('journal_mode = WAL');
-  writeDb.pragma('synchronous = OFF');
+  // NORMAL (not OFF): with WAL this is both fast and crash-safe — a power loss
+  // can no longer lose the last committed transactions.
+  writeDb.pragma('synchronous = NORMAL');
   writeDb.pragma('cache_size = -64000');
 
   const { initSchema } = require('./dbSchema');
   initSchema(writeDb);
-  const { ensureSearchIndex } = require('./searchIndex');
+  const { ensureSearchIndex, syncBooksFts } = require('./searchIndex');
   ensureSearchIndex(writeDb);
+
+  const installOne = async (book, i) => {
+    const zipPath = await downloadBookZip(book, onProgress);
+    if (zipPath) {
+      try {
+        await installBookZip(book, zipPath, writeDb, (msg) => {
+          onProgress(msg, i, total);
+        });
+        return true;
+      } catch (e) {
+        console.error(`Failed to install book ${book.book_name}:`, e);
+        onProgress(`فشل: ${book.book_name}`, i, total);
+        return false;
+      } finally {
+        cleanupZip(zipPath);
+      }
+    } else {
+      onProgress(`فشل: ${book.book_name}`, i, total);
+      return false;
+    }
+  };
 
   const total = booksToInstall.length;
   const pendingDownloads = [];
+  const failedBooks = [];
   let cursor = 0;
 
   // Keep up to DOWNLOAD_CONCURRENCY downloads in flight; install as each finishes.
@@ -414,12 +454,33 @@ async function runUpdates(booksToInstall, onProgress) {
       } catch (e) {
         console.error(`Failed to install book ${book.book_name}:`, e);
         onProgress(`فشل: ${book.book_name}`, i, total);
+        failedBooks.push(book);
       } finally {
         cleanupZip(zipPath);
       }
     } else {
       onProgress(`فشل: ${book.book_name}`, i, total);
+      failedBooks.push(book);
     }
+  }
+
+  // Transient network failures are common on long runs: retry failures once.
+  if (failedBooks.length > 0) {
+    console.log(`Retrying ${failedBooks.length} failed book(s)...`);
+    const retryTotal = failedBooks.length;
+    for (let r = 0; r < retryTotal; r++) {
+      const book = failedBooks[r];
+      const ok = await installOne(book, r);
+      if (!ok) onProgress(`فشل بعد إعادة المحاولة: ${book.book_name}`, r, retryTotal);
+    }
+  }
+
+  // Re-sync the title/author FTS index — row counts don't change on updates,
+  // so a count-based sync would leave stale titles searchable.
+  try {
+    syncBooksFts(writeDb);
+  } catch (e) {
+    console.error('books_fts sync after update failed:', e.message);
   }
 
   // Backfill books.pdf_path for catalog books installed in this run.

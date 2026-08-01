@@ -1,9 +1,21 @@
-import { useState, useMemo, useCallback, memo } from 'react';
+import { useState, useMemo, useCallback, memo, lazy, Suspense } from 'react';
 import { ChevronRight, BookOpen, Wrench, FolderTree, History, Bookmark, StickyNote } from 'lucide-react';
 import { Category, DbStats, Book } from '../types';
-import { HistoryPanel } from './HistoryPanel';
-import { BookmarksPanel } from './BookmarksPanel';
-import { NotesPanel } from './NotesPanel';
+
+// User-data panels (history/bookmarks/notes) load only when their tab opens.
+// React.lazy needs a default export, so map the named exports explicitly.
+const HistoryPanel = lazy(() => import('./HistoryPanel').then((m) => ({ default: m.HistoryPanel })));
+const BookmarksPanel = lazy(() => import('./BookmarksPanel').then((m) => ({ default: m.BookmarksPanel })));
+const NotesPanel = lazy(() => import('./NotesPanel').then((m) => ({ default: m.NotesPanel })));
+
+function PanelFallback() {
+  return (
+    <div className="p-4">
+      <div className="h-3 bg-border rounded w-3/4 mb-2 animate-pulse" />
+      <div className="h-3 bg-border rounded w-1/2 animate-pulse" />
+    </div>
+  );
+}
 
 interface SidebarProps {
   categories: Category[];
@@ -198,13 +210,16 @@ export const Sidebar = memo(function Sidebar({
       </div>
 
       <div className="flex-1 min-h-0 flex flex-col">
-        {activeTab === 'history' ? (
-          <HistoryPanel onOpenBook={onOpenBook} />
-        ) : activeTab === 'bookmarks' ? (
-          <BookmarksPanel onOpenBook={onOpenBook} />
-        ) : activeTab === 'notes' ? (
-          <NotesPanel onOpenBook={onOpenBook} />
-        ) : (
+        {/* key={activeTab}: panels mount fresh per tab so hook state never
+            carries across different panel components. */}
+        <Suspense key={activeTab} fallback={<PanelFallback />}>
+          {activeTab === 'history' ? (
+            <HistoryPanel onOpenBook={onOpenBook} />
+          ) : activeTab === 'bookmarks' ? (
+            <BookmarksPanel onOpenBook={onOpenBook} />
+          ) : activeTab === 'notes' ? (
+            <NotesPanel onOpenBook={onOpenBook} />
+          ) : (
           <div className="flex-1 min-h-0 overflow-y-auto p-2">
             <div className="flex flex-col gap-1">
               {stats && (
@@ -258,7 +273,8 @@ export const Sidebar = memo(function Sidebar({
               </div>
             </div>
           </div>
-        )}
+          )}
+        </Suspense>
       </div>
     </div>
   );

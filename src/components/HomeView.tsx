@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react';
 import { BookOpen, Users, Library } from 'lucide-react';
 import { Book, DbStats } from '../types';
 
+// The catalog is static within a session: cache the random selection so
+// navigating back to Home doesn't re-query + re-sort the books table each time.
+let recentCache: Book[] | null = null;
+
 interface HomeViewProps {
   stats: DbStats | null;
   onOpenBook: (book: Book) => void;
@@ -19,7 +23,13 @@ export function HomeView({ stats, onOpenBook, onBrowseBooks, onBrowseAuthors }: 
 
   const loadRecent = async () => {
     try {
+      if (recentCache) {
+        setRecentBooks(recentCache);
+        setLoading(false);
+        return;
+      }
       const books = await window.api.getRecentBooks();
+      recentCache = books;
       setRecentBooks(books);
     } catch (e) {
       console.error(e);

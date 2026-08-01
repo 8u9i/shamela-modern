@@ -279,6 +279,62 @@ test.describe('PDF on-demand download', () => {
   });
 });
 
+test.describe('Bulk PDF download (full offline library)', () => {
+  const PDF_REL = 'Rel:pdf\\مرشد الطلاب تلخيص لشرح قصيدة تحريض الطلبة\\1001276.pdf';
+
+  test('PdfDownloadManager renders in the services view', async () => {
+    const servicesBtn = window.locator('button:has-text("خدمات")').first();
+    await servicesBtn.click();
+    await expect(window.getByRole('heading', { name: 'تحميل جميع ملفات PDF' })).toBeVisible({ timeout: 5000 });
+    await expect(window.getByRole('button', { name: 'تحميل الكل' })).toBeVisible();
+  });
+
+  test('downloadAllPdfs downloads every catalog file with progress events', async () => {
+    // Force a real download through the bulk path by clearing the cache.
+    fs.rmSync(
+      path.join(PDF_TEST_DIR, 'مرشد الطلاب تلخيص لشرح قصيدة تحريض الطلبة'),
+      { recursive: true, force: true }
+    );
+
+    await window.evaluate(() => {
+      (window as any).__pdfEvents = [];
+      window.api.onPdfDownloadProgress((p: any) => (window as any).__pdfEvents.push(p));
+    });
+
+    const result = await window.evaluate(() => window.api.downloadAllPdfs());
+    expect(result.started).toBe(true);
+    expect(result.failed).toBe(0);
+    expect(result.downloaded).toBe(1);
+
+    expect(fs.existsSync(path.join(PDF_TEST_DIR, 'مرشد الطلاب تلخيص لشرح قصيدة تحريض الطلبة', '1001276.pdf'))).toBe(true);
+
+    const state = await window.evaluate(() => window.api.getPdfDownloadState());
+    expect(state.total).toBe(1);
+    expect(state.cached).toBe(1);
+    expect(state.running).toBe(false);
+
+    await window.waitForTimeout(300);
+    const events = await window.evaluate(() => (window as any).__pdfEvents);
+    expect(events.length).toBeGreaterThan(0);
+    expect(events[0].type).toBe('start');
+    expect(events[events.length - 1].downloaded).toBe(1);
+  });
+
+  test('downloadAllPdfs is resumable across runs', async () => {
+    const result = await window.evaluate(() => window.api.downloadAllPdfs());
+    expect(result.started).toBe(true);
+    expect(result.downloaded).toBe(1);
+    expect(result.failed).toBe(0);
+    const state = await window.evaluate(() => window.api.getPdfDownloadState());
+    expect(state.cached).toBe(1);
+  });
+
+  test('stopPdfDownloads IPC handler is wired', async () => {
+    const stopped = await window.evaluate(() => window.api.stopPdfDownloads());
+    expect(stopped).toBe(true);
+  });
+});
+
 test.describe('Auto-Update UI', () => {
   test('UpdateNotifier component mounts without error', async () => {
     // Verify the component renders at all (may be checking, error, or dismissed)

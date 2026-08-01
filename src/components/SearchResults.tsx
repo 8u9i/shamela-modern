@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Book, SearchResult, ContentSearchResult } from '../types';
+import { sanitizeSnippet } from '../lib/sanitizeSnippet';
 
 interface SearchResultsProps {
   query: string;
@@ -36,11 +37,11 @@ export function SearchResults({ query, onOpenBook, compact }: SearchResultsProps
 
   const highlightText = (text: string, term: string) => {
     const parts = text.split(new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'));
-    return parts.map((part, i) =>
+    return sanitizeSnippet(parts.map((part, i) =>
       part.toLowerCase() === term.toLowerCase()
         ? `<mark class="search-highlight">${part}</mark>`
         : part
-    ).join('');
+    ).join(''));
   };
 
   if (compact) {
@@ -102,7 +103,7 @@ export function SearchResults({ query, onOpenBook, compact }: SearchResultsProps
                   {book.snippet && (
                     <div
                       className="text-muted-foreground text-[10px] mt-0.5 line-clamp-2"
-                      dangerouslySetInnerHTML={{ __html: book.snippet }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeSnippet(book.snippet) }}
                     />
                   )}
                 </button>
@@ -119,12 +120,12 @@ export function SearchResults({ query, onOpenBook, compact }: SearchResultsProps
                   <div
                     className="text-muted-foreground text-[10px] line-clamp-2 mt-0.5"
                     dangerouslySetInnerHTML={{
-                      __html: result.snippet || highlightText(
+                      __html: sanitizeSnippet(result.snippet || highlightText(
                         result.content.length > 200
                           ? result.content.substring(0, 200) + '...'
                           : result.content,
                         query
-                      ),
+                      )),
                     }}
                   />
                 </button>
@@ -206,7 +207,7 @@ export function SearchResults({ query, onOpenBook, compact }: SearchResultsProps
                   {book.snippet && (
                     <p
                       className="text-muted-foreground text-xs mt-2 line-clamp-3 leading-relaxed"
-                      dangerouslySetInnerHTML={{ __html: book.snippet }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeSnippet(book.snippet) }}
                     />
                   )}
                 </button>
@@ -238,12 +239,12 @@ export function SearchResults({ query, onOpenBook, compact }: SearchResultsProps
                   <p
                     className="text-muted-foreground text-sm leading-relaxed line-clamp-3"
                     dangerouslySetInnerHTML={{
-                      __html: result.snippet || highlightText(
+                      __html: sanitizeSnippet(result.snippet || highlightText(
                         result.content.length > 300
                           ? result.content.substring(0, 300) + '...'
                           : result.content,
                         query
-                      ),
+                      )),
                     }}
                   />
                 </button>

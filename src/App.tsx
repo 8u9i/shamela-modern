@@ -1,20 +1,34 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { ViewMode, Book, Category, Author, DbStats } from './types';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { HomeView } from './components/HomeView';
 import { BookList } from './components/BookList';
-import { BookReader } from './components/BookReader';
-import { AuthorView } from './components/AuthorView';
-import { AuthorsView } from './components/AuthorsView';
-import { SearchResults } from './components/SearchResults';
-import { PdfViewer } from './components/PdfViewer';
-import { ServicesView } from './components/ServicesView';
 import { TipsDialog } from './components/TipsDialog';
 import { UpdateView } from './components/UpdateView';
+import { DownloadActivityBanner } from './components/DownloadActivityBanner';
 import { UpdateNotifier } from './components/UpdateNotifier';
 import { StatusBar } from './components/StatusBar';
+
+// Heavy views load only when the user reaches them (code-splitting): the
+// startup chunk stays small instead of shipping the reader, PDF viewer,
+// services and search engines up front. React.lazy needs a default export, so
+// map the named exports explicitly.
+const BookReader = lazy(() => import('./components/BookReader').then((m) => ({ default: m.BookReader })));
+const AuthorView = lazy(() => import('./components/AuthorView').then((m) => ({ default: m.AuthorView })));
+const AuthorsView = lazy(() => import('./components/AuthorsView').then((m) => ({ default: m.AuthorsView })));
+const SearchResults = lazy(() => import('./components/SearchResults').then((m) => ({ default: m.SearchResults })));
+const PdfViewer = lazy(() => import('./components/PdfViewer').then((m) => ({ default: m.PdfViewer })));
+const ServicesView = lazy(() => import('./components/ServicesView').then((m) => ({ default: m.ServicesView })));
+
+function ViewFallback() {
+  return (
+    <div className="flex-1 p-6">
+      <div className="text-muted-foreground text-xs animate-pulse">جاري التحميل...</div>
+    </div>
+  );
+}
 
 declare global {
   interface Window {
@@ -33,6 +47,10 @@ declare global {
       searchContent: (opts: any) => Promise<any[]>;
       getRecentBooks: () => Promise<Book[]>;
       getPdfPath: (relativePath: string) => Promise<string | null>;
+      downloadAllPdfs: () => Promise<any>;
+      stopPdfDownloads: () => Promise<boolean>;
+      getPdfDownloadState: () => Promise<import('./types').PdfDownloadState>;
+      onPdfDownloadProgress: (callback: (data: import('./types').PdfDownloadProgress) => void) => () => void;
       addHistory: (opts: { bookId: number; bookTitle: string; authorName?: string | null; page?: number }) => Promise<boolean | null>;
       getHistory: (opts?: { limit?: number }) => Promise<any[]>;
       clearHistory: () => Promise<boolean>;
@@ -289,69 +307,74 @@ export default function App() {
         )}
 
         <div className="flex-1 flex flex-col overflow-hidden">
-          {view === 'home' && (
-            <HomeView
-              stats={stats}
-              onOpenBook={handleOpenBook}
-              onBrowseBooks={() => { setSelectedCategoryId(null); setView('books'); }}
-              onBrowseAuthors={handleOpenAuthors}
-            />
-          )}
-          {showRightPanelBooks && (
-            <BookList
-              categoryId={selectedCategoryId}
-              onOpenBook={handleOpenBook}
-              onOpenAuthor={handleOpenAuthor}
-            />
-          )}
-          {view === 'books' && selectedCategoryId === null && (
-            <BookList
-              categoryId={null}
-              onOpenBook={handleOpenBook}
-              onOpenAuthor={handleOpenAuthor}
-            />
-          )}
-          {view === 'authors' && (
-            <AuthorsView
-              onOpenAuthor={handleOpenAuthor}
-              onOpenBook={handleOpenBook}
-            />
-          )}
-          {view === 'reader' && selectedBook && (
-            <BookReader
-              key={selectedBook.id}
-              book={selectedBook}
-              onBack={handleBack}
-              onOpenAuthor={handleOpenAuthor}
-              onOpenPdf={handleOpenPdf}
-            />
-          )}
-          {view === 'pdf' && pdfBook && (
-            <PdfViewer
-              relativePath={pdfBook.pdf_path || ''}
-              bookTitle={pdfBook.title}
-              onBack={handleBack}
-            />
-          )}
-          {view === 'author' && selectedAuthor && (
-            <AuthorView
-              author={selectedAuthor}
-              onOpenBook={handleOpenBook}
-              onBack={handleBack}
-            />
-          )}
-          {showRightPanelSearch && (
-            <SearchResults
-              query={searchQuery}
-              onOpenBook={handleOpenBook}
-            />
-          )}
-          {view === 'services' && <ServicesView />}
+          {/* key={view}: each view gets its own Suspense boundary so React never
+              reuses a mounted component slot (and its hooks) across views. */}
+          <Suspense key={view} fallback={<ViewFallback />}>
+            {view === 'home' && (
+              <HomeView
+                stats={stats}
+                onOpenBook={handleOpenBook}
+                onBrowseBooks={() => { setSelectedCategoryId(null); setView('books'); }}
+                onBrowseAuthors={handleOpenAuthors}
+              />
+            )}
+            {showRightPanelBooks && (
+              <BookList
+                categoryId={selectedCategoryId}
+                onOpenBook={handleOpenBook}
+                onOpenAuthor={handleOpenAuthor}
+              />
+            )}
+            {view === 'books' && selectedCategoryId === null && (
+              <BookList
+                categoryId={null}
+                onOpenBook={handleOpenBook}
+                onOpenAuthor={handleOpenAuthor}
+              />
+            )}
+            {view === 'authors' && (
+              <AuthorsView
+                onOpenAuthor={handleOpenAuthor}
+                onOpenBook={handleOpenBook}
+              />
+            )}
+            {view === 'reader' && selectedBook && (
+              <BookReader
+                key={selectedBook.id}
+                book={selectedBook}
+                onBack={handleBack}
+                onOpenAuthor={handleOpenAuthor}
+                onOpenPdf={handleOpenPdf}
+              />
+            )}
+            {view === 'pdf' && pdfBook && (
+              <PdfViewer
+                relativePath={pdfBook.pdf_path || ''}
+                bookTitle={pdfBook.title}
+                onBack={handleBack}
+              />
+            )}
+            {view === 'author' && selectedAuthor && (
+              <AuthorView
+                author={selectedAuthor}
+                onOpenBook={handleOpenBook}
+                onBack={handleBack}
+              />
+            )}
+            {showRightPanelSearch && (
+              <SearchResults
+                query={searchQuery}
+                onOpenBook={handleOpenBook}
+              />
+            )}
+            {view === 'services' && <ServicesView />}
+          </Suspense>
         </div>
       </div>
 
       <TipsDialog open={tipsOpen} onClose={() => setTipsOpen(false)} />
       <UpdateNotifier />
+      <DownloadActivityBanner />
       <StatusBar
         stats={stats}
         currentBook={selectedBook}
